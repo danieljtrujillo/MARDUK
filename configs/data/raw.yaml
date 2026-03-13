@@ -1,0 +1,33 @@
+paths:
+  train_csv: data/raw/train.csv
+  test_csv: data/raw/test.csv
+  augmented_csv: data/augmented/augmented_pairs.csv
+  lexicon_csv: data/raw/OA_Lexicon_eBL.csv
+  dictionary_csv: data/raw/eBL_Dictionary.csv
+  sentences_csv: data/raw/Sentences_Oare_FirstWord_LinNum.csv
+  published_texts_csv: data/raw/published_texts.csv
+  publications_csv: data/raw/publications.csv
+  processed_dir: data/processed
+
+columns:
+  id: oare_id
+  source: transliteration
+  target: translation
+  test_id: id
+  test_source: transliteration
+  test_text_id: text_id
+  metadata: []
+
+splits:
+  type: kfold
+  n_splits: 5
+  random_state: 17
+  shuffle: true
+
+normalization:
+  enabled: true
+  lowercase: false
+  normalize_whitespace: true
+  normalize_unicode_punctuation: true
+  space_repeated_separators: true
+  preserve_damage_markers: true

@@ -1,0 +1,6 @@
+packing:
+  include_metadata: true
+  include_raw_view: true
+  include_normalized_view: true
+  metadata_format: angle_bracket
+  wrap_views: true

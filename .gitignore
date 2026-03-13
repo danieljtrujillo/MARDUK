@@ -1,0 +1,70 @@
+# ============================================================
+# MARDUK .gitignore
+# ============================================================
+
+# ── Large data files (>100MB, download from Kaggle) ──
+data/raw/publications.csv
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.whl
+
+# ── Virtual environments ──
+.venv/
+venv/
+ENV/
+env/
+
+# ── IDE / Editor ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Archive (original zips & superseded code) ──
+archive/
+
+# ── Competition data (large CSVs, do not commit) ──
+deep-past-initiative-machine-translation/
+
+# ── Generated / reproducible outputs ──
+data/processed/
+outputs/
+runs/
+wandb/
+*.pt
+*.pth
+*.ckpt
+*.bin
+submission.csv
+repomix-output.md
+repomix-output.txt
+repomix-output.xml
+
+# ── Logs ──
+*.log
+logs/
+
+# ── Jupyter ──
+.ipynb_checkpoints/
+
+# ── System ──
+*.tmp
+*.bak
+*.orig
+
+# ── npm (repomix install artifacts) ──
+node_modules/
+package-lock.json

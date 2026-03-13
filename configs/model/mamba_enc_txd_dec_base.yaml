@@ -1,0 +1,29 @@
+family: hybrid
+source_vocab: byte
+target_tokenizer_name_or_path: t5-small
+
+encoder:
+  d_model: 512
+  n_layers: 8
+  dropout: 0.1
+  bidirectional: true
+  use_mamba_if_available: true
+
+decoder:
+  d_model: 512
+  n_layers: 4
+  n_heads: 8
+  ff_mult: 4
+  dropout: 0.1
+
+input:
+  include_metadata: true
+  include_raw_view: true
+  include_normalized_view: true
+  source_max_length: 1024
+  target_max_length: 256
+
+auxiliary_losses:
+  name_weight: 0.2
+  number_weight: 0.1
+  damage_weight: 0.1
