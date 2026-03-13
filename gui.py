@@ -40,6 +40,82 @@ DEFAULT_MODEL_CFG = "configs/model/mamba_enc_txd_dec_base.yaml"
 DEFAULT_TRAIN_CFG = "configs/train/hybrid.yaml"
 
 
+# ---------------------------------------------------------------------------
+# Hardware detection — run via subprocess to avoid DLL conflicts with PyQt5
+# ---------------------------------------------------------------------------
+def _detect_hw_subprocess() -> dict:
+    """Detect hardware by running a small Python script in a subprocess.
+
+    This avoids loading torch DLLs in the same process as PyQt5, which can
+    cause DLL init failures on Windows.
+    """
+    script = (
+        "import json, sys; "
+        "info = {'torch_version':'?','cuda_available':False,'cuda_version':None,"
+        "'gpus':[],'bf16':False,'default_device':'cpu','devices':['cpu']}; "
+        "try:\n"
+        "    import torch\n"
+        "    info['torch_version'] = torch.__version__\n"
+        "    info['cuda_available'] = torch.cuda.is_available()\n"
+        "    info['cuda_version'] = getattr(torch.version, 'cuda', None)\n"
+        "    devs = []\n"
+        "    if torch.cuda.is_available():\n"
+        "        for i in range(torch.cuda.device_count()):\n"
+        "            props = torch.cuda.get_device_properties(i)\n"
+        "            info['gpus'].append({'index':i,'name':props.name,"
+        "'mem_gb':round(props.total_memory/1024**3,1)})\n"
+        "            devs.append(f'cuda:{i}')\n"
+        "        info['bf16'] = torch.cuda.is_bf16_supported()\n"
+        "        info['default_device'] = 'cuda:0'\n"
+        "    if not devs and hasattr(torch.backends,'mps') and torch.backends.mps.is_available():\n"
+        "        devs.append('mps')\n"
+        "    devs.append('cpu')\n"
+        "    info['devices'] = devs\n"
+        "except Exception as e:\n"
+        "    info['error'] = str(e)\n"
+        "print(json.dumps(info))"
+    )
+    try:
+        result = subprocess.run(
+            [PYTHON, "-c", script],
+            capture_output=True, text=True, timeout=30,
+            cwd=str(ROOT),
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+        )
+        import json
+        return json.loads(result.stdout.strip())
+    except Exception:
+        return {
+            "torch_version": "?", "cuda_available": False, "cuda_version": None,
+            "gpus": [], "bf16": False, "default_device": "cpu",
+            "devices": ["cpu"], "error": "detection failed",
+        }
+
+
+HW_INFO = _detect_hw_subprocess()
+AVAILABLE_DEVICES = HW_INFO.get("devices", ["cpu"])
+
+
+def _make_device_combo() -> QComboBox:
+    """Create a QComboBox pre-filled with detected devices, best first."""
+    cb = QComboBox()
+    for dev in AVAILABLE_DEVICES:
+        label = dev
+        # Annotate GPU devices with their name
+        if dev.startswith("cuda:"):
+            idx = int(dev.split(":")[1])
+            for g in HW_INFO["gpus"]:
+                if g["index"] == idx:
+                    label = f"{dev}  —  {g['name']} ({g['mem_gb']} GB)"
+        cb.addItem(label, dev)  # display text, user data = raw device string
+    return cb
+
+
+def _device_from_combo(cb: QComboBox) -> str:
+    """Extract the raw device string from a device combo box."""
+    return cb.currentData() or cb.currentText().split()[0]
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Worker thread — runs subprocess commands and streams stdout/stderr
 # ═══════════════════════════════════════════════════════════════════════════
@@ -245,12 +321,16 @@ class TrainTab(QWidget):
         self.output_dir = QLineEdit("outputs/runs/hybrid_base")
         self.seed = QSpinBox(); self.seed.setRange(0, 99999); self.seed.setValue(17)
         self.fold = QSpinBox(); self.fold.setRange(0, 19); self.fold.setValue(0)
-        self.device = QComboBox(); self.device.addItems(["cuda", "cpu", "cuda:0", "cuda:1"])
+        self.device = _make_device_combo()
+        self.use_bf16 = QCheckBox("Use bf16 (RTX 30xx+)")
+        self.use_bf16.setChecked(HW_INFO["bf16"])
+        self.use_bf16.setEnabled(HW_INFO["bf16"])
         rf.addRow("Run name:", self.run_name)
         rf.addRow("Output dir:", self.output_dir)
         rf.addRow("Seed:", self.seed)
         rf.addRow("Fold:", self.fold)
         rf.addRow("Device:", self.device)
+        rf.addRow("Precision:", self.use_bf16)
         rg.setLayout(rf)
         main.addWidget(rg)
 
@@ -389,7 +469,10 @@ class TrainTab(QWidget):
             "--view-config", self.view_config.text(),
             "--model-config", self.model_config.text(),
             "--train-config", self.train_config.text(),
+            "--device", _device_from_combo(self.device),
         ]
+        if self.use_bf16.isChecked():
+            cmd.append("--bf16")
         self.run_requested.emit(cmd)
 
 
@@ -420,13 +503,15 @@ class InferenceTab(QWidget):
         self.no_repeat_ngram = QSpinBox(); self.no_repeat_ngram.setRange(0, 20); self.no_repeat_ngram.setValue(3)
         self.max_new_tokens = QSpinBox(); self.max_new_tokens.setRange(16, 2048); self.max_new_tokens.setValue(256)
         self.inf_batch_size = QSpinBox(); self.inf_batch_size.setRange(1, 512); self.inf_batch_size.setValue(8)
-        self.inf_device = QComboBox(); self.inf_device.addItems(["cuda", "cpu", "cuda:0", "cuda:1"])
+        self.inf_device = _make_device_combo()
+        self.inf_bf16 = QCheckBox("Use bf16"); self.inf_bf16.setChecked(HW_INFO["bf16"]); self.inf_bf16.setEnabled(HW_INFO["bf16"])
         df.addRow("Num beams:", self.num_beams)
         df.addRow("Length penalty:", self.length_penalty)
         df.addRow("No-repeat n-gram:", self.no_repeat_ngram)
         df.addRow("Max new tokens:", self.max_new_tokens)
         df.addRow("Batch size:", self.inf_batch_size)
         df.addRow("Device:", self.inf_device)
+        df.addRow("Precision:", self.inf_bf16)
         dg.setLayout(df)
         main.addWidget(dg)
 
@@ -484,7 +569,7 @@ class InferenceTab(QWidget):
             "--checkpoint", self.checkpoint.text(),
             "--output", self.output_csv.text(),
             "--batch-size", str(self.inf_batch_size.value()),
-            "--device", self.inf_device.currentText(),
+            "--device", _device_from_combo(self.inf_device),
             "--num-beams", str(self.num_beams.value()),
         ]
         self.run_requested.emit(cmd)
@@ -503,7 +588,7 @@ class InferenceTab(QWidget):
             f"model_cfg = load_yaml('{self.model_config.text()}'); "
             f"data_cfg = load_yaml('{self.data_config.text()}'); "
             f"view_cfg = load_yaml('{self.view_config.text()}'); "
-            f"dev = torch.device('{self.inf_device.currentText()}' if torch.cuda.is_available() else 'cpu'); "
+            f"dev = torch.device('{_device_from_combo(self.inf_device)}' if torch.cuda.is_available() else 'cpu'); "
             f"model = load_model(model_cfg, '{self.checkpoint.text()}', dev); "
             f"se = ByteSourceEncoder(max_length=model_cfg['input']['source_max_length']); "
             f"row = {{'transliteration': '''{source}'''}}; "
@@ -612,6 +697,31 @@ class MardukGUI(QMainWindow):
         hdr.setAlignment(Qt.AlignCenter)
         hdr.setStyleSheet("font-size: 20px; font-weight: bold; padding: 6px;")
         root.addWidget(hdr)
+
+        # ── Hardware info banner ──
+        hw_parts = [f"PyTorch {HW_INFO['torch_version']}"]
+        if HW_INFO["cuda_available"]:
+            for g in HW_INFO["gpus"]:
+                hw_parts.append(f"GPU {g['index']}: {g['name']} ({g['mem_gb']} GB)")
+            hw_parts.append(f"CUDA {HW_INFO['cuda_version']}")
+            if HW_INFO["bf16"]:
+                hw_parts.append("bf16 ✓")
+            banner_color = "#264f36"  # green-ish = GPU available
+            banner_icon = "🟢"
+        else:
+            hw_parts.append("NO GPU DETECTED — running on CPU")
+            banner_color = "#6b3030"  # red-ish = CPU only
+            banner_icon = "🔴"
+        hw_banner = QLabel(f"  {banner_icon}  {'  |  '.join(hw_parts)}")
+        hw_banner.setAlignment(Qt.AlignCenter)
+        hw_banner.setStyleSheet(f"""
+            background-color: {banner_color};
+            color: #e0e0e0;
+            border-radius: 4px;
+            padding: 5px;
+            font-size: 11px;
+        """)
+        root.addWidget(hw_banner)
 
         # ── Splitter: tabs on top, console on bottom ──
         splitter = QSplitter(Qt.Vertical)

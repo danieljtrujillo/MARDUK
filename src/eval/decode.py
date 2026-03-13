@@ -104,14 +104,18 @@ def decode_batch(
     source_ids_t = source_ids_t.to(device)
     source_mask_t = source_mask_t.to(device)
 
-    generated = model.generate(
-        source_ids=source_ids_t,
-        source_mask=source_mask_t,
-        max_new_tokens=max_new_tokens,
-        num_beams=num_beams,
-        length_penalty=length_penalty,
-        no_repeat_ngram_size=no_repeat_ngram_size,
-    )
+    # Use bf16 autocast on CUDA for faster inference
+    device_type = source_ids_t.device.type
+    use_amp = device_type == "cuda" and torch.cuda.is_bf16_supported()
+    with torch.amp.autocast(device_type=device_type, dtype=torch.bfloat16, enabled=use_amp):
+        generated = model.generate(
+            source_ids=source_ids_t,
+            source_mask=source_mask_t,
+            max_new_tokens=max_new_tokens,
+            num_beams=num_beams,
+            length_penalty=length_penalty,
+            no_repeat_ngram_size=no_repeat_ngram_size,
+        )
 
     tokenizer = model.target_tokenizer
     predictions = tokenizer.batch_decode(generated, skip_special_tokens=True)
@@ -134,7 +138,15 @@ def generate_submission(
     Returns the submission DataFrame.
     """
     logger = get_logger()
-    dev = torch.device(device if torch.cuda.is_available() else "cpu")
+
+    # Resolve device with proper fallback
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        logger.warning("CUDA requested but not available — falling back to CPU")
+        device = "cpu"
+    dev = torch.device(device)
+    if dev.type == "cuda":
+        logger.info("GPU: %s (%.1f GB)", torch.cuda.get_device_name(dev),
+                    torch.cuda.get_device_properties(dev).total_memory / 1024**3)
 
     # Load model
     logger.info("Loading model from %s", checkpoint_path)

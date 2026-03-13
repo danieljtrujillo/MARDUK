@@ -27,6 +27,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--view-config", required=True)
     parser.add_argument("--model-config", required=True)
     parser.add_argument("--train-config", required=True)
+    parser.add_argument("--device", default=None,
+                        help="Override device from train config (e.g. cuda:0, cpu)")
+    parser.add_argument("--bf16", action="store_true",
+                        help="Enable bf16 mixed-precision training")
     return parser.parse_args()
 
 
@@ -112,7 +116,19 @@ def main() -> None:
     train_df, val_df = load_prepared_frame(data_cfg, train_cfg["fold"])
 
     output_dir = ensure_dir(train_cfg["output_dir"])
-    device = torch.device(train_cfg["device"] if torch.cuda.is_available() else "cpu")
+
+    # Resolve device: CLI arg > config > auto-detect
+    device_str = args.device or train_cfg.get("device", "cuda")
+    if device_str.startswith("cuda") and not torch.cuda.is_available():
+        logger.warning("CUDA requested but not available — falling back to CPU")
+        device_str = "cpu"
+    device = torch.device(device_str)
+    use_bf16 = args.bf16 and device.type == "cuda" and torch.cuda.is_bf16_supported()
+    logger.info("Device: %s | bf16: %s", device, use_bf16)
+    if device.type == "cuda":
+        logger.info("GPU: %s (%.1f GB)", torch.cuda.get_device_name(device),
+                    torch.cuda.get_device_properties(device).total_memory / 1024**3)
+    scaler = torch.amp.GradScaler(enabled=use_bf16)
 
     source_encoder = ByteSourceEncoder(max_length=model_cfg["input"]["source_max_length"])
     target_tokenizer = AutoTokenizer.from_pretrained(model_cfg["target_tokenizer_name_or_path"])
@@ -177,16 +193,19 @@ def main() -> None:
             labels = batch.labels.to(device)
             aux = {k: v.to(device) for k, v in batch.aux.items()}
 
-            out = model(
-                source_ids=source_ids,
-                source_mask=source_mask,
-                target_ids=target_ids,
-                labels=labels,
-                aux=aux,
-            )
-            out.loss.backward()
+            with torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
+                out = model(
+                    source_ids=source_ids,
+                    source_mask=source_mask,
+                    target_ids=target_ids,
+                    labels=labels,
+                    aux=aux,
+                )
+            scaler.scale(out.loss).backward()
+            scaler.unscale_(optimizer)
             clip_grad_norm_(model.parameters(), train_cfg["grad_clip_norm"])
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
             scheduler.step()
 
             running += float(out.loss.item())
