@@ -47,12 +47,16 @@ def _detect_hw_subprocess() -> dict:
     """Detect hardware by running a small Python script in a subprocess.
 
     This avoids loading torch DLLs in the same process as PyQt5, which can
-    cause DLL init failures on Windows.
+    cause DLL init failures on Windows.  We write the script to a temp file
+    to sidestep ``python -c`` quoting / syntax issues.
     """
+    import json as _json
+    import tempfile
+
     script = (
-        "import json, sys; "
-        "info = {'torch_version':'?','cuda_available':False,'cuda_version':None,"
-        "'gpus':[],'bf16':False,'default_device':'cpu','devices':['cpu']}; "
+        "import json, sys\n"
+        "info = {'torch_version':'?','cuda_available':False,'cuda_version':None,\n"
+        "        'gpus':[],'bf16':False,'default_device':'cpu','devices':['cpu']}\n"
         "try:\n"
         "    import torch\n"
         "    info['torch_version'] = torch.__version__\n"
@@ -62,8 +66,8 @@ def _detect_hw_subprocess() -> dict:
         "    if torch.cuda.is_available():\n"
         "        for i in range(torch.cuda.device_count()):\n"
         "            props = torch.cuda.get_device_properties(i)\n"
-        "            info['gpus'].append({'index':i,'name':props.name,"
-        "'mem_gb':round(props.total_memory/1024**3,1)})\n"
+        "            info['gpus'].append({'index':i,'name':props.name,\n"
+        "                'mem_gb':round(props.total_memory/1024**3,1)})\n"
         "            devs.append(f'cuda:{i}')\n"
         "        info['bf16'] = torch.cuda.is_bf16_supported()\n"
         "        info['default_device'] = 'cuda:0'\n"
@@ -73,23 +77,29 @@ def _detect_hw_subprocess() -> dict:
         "    info['devices'] = devs\n"
         "except Exception as e:\n"
         "    info['error'] = str(e)\n"
-        "print(json.dumps(info))"
+        "print(json.dumps(info))\n"
     )
+    tmp_path = None
     try:
+        fd, tmp_path = tempfile.mkstemp(suffix=".py", prefix="_marduk_hw_")
+        os.write(fd, script.encode())
+        os.close(fd)
         result = subprocess.run(
-            [PYTHON, "-c", script],
+            [PYTHON, tmp_path],
             capture_output=True, text=True, timeout=30,
             cwd=str(ROOT),
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
         )
-        import json
-        return json.loads(result.stdout.strip())
+        return _json.loads(result.stdout.strip())
     except Exception:
         return {
             "torch_version": "?", "cuda_available": False, "cuda_version": None,
             "gpus": [], "bf16": False, "default_device": "cpu",
             "devices": ["cpu"], "error": "detection failed",
         }
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 HW_INFO = _detect_hw_subprocess()

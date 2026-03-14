@@ -65,6 +65,16 @@ logs/
 *.bak
 *.orig
 
+# ── Deploy config (local user settings) ──
+.deploy_config
+
+# ── Secrets / keys (never commit) ──
+fff
+fff.pub
+*.pem
+id_*
+*.key
+
 # ── npm (repomix install artifacts) ──
 node_modules/
 package-lock.json

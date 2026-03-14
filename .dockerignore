@@ -1,0 +1,10 @@
+.venv/
+.git/
+__pycache__/
+*.pyc
+*.egg-info/
+outputs/
+data/processed/
+archive/
+_test_*.py
+gui.py

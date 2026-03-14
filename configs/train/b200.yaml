@@ -1,0 +1,16 @@
+# Training config optimized for NVIDIA B200 (192 GB HBM3e)
+run_name: hybrid_b200
+seed: 17
+output_dir: outputs/runs/hybrid_b200
+batch_size: 64
+eval_batch_size: 128
+epochs: 25
+learning_rate: 5.0e-4
+weight_decay: 0.01
+warmup_steps: 300
+grad_clip_norm: 1.0
+log_every: 10
+eval_every: 100
+checkpoint_every: 250
+fold: 0
+device: cuda
