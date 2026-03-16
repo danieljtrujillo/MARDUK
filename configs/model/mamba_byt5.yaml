@@ -1,7 +1,7 @@
 # Mamba-enhanced ByT5 model config
 # Phase 1 ByT5 checkpoint with BiMamba SSM adapter layers injected after encoder
 base_model: google/byt5-base
-checkpoint: outputs/runs/byt5_base/best
+checkpoint: outputs/runs/byt5_expanded/best
 
 source_max_length: 1024
 target_max_length: 256

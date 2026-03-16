@@ -402,6 +402,24 @@ def _build_command(task: str, args: dict) -> list[str] | None:
         ]
     elif task == "pipeline":
         return ["bash", str(ROOT / "runpod_start.sh")]
+    elif task == "cleanup_checkpoints":
+        # Remove HF Trainer checkpoint-* dirs but keep best/ and metrics.json
+        return [
+            "bash", "-c",
+            "du -sh /workspace/outputs/runs/*/* 2>/dev/null; "
+            "echo '---'; "
+            "find /workspace/outputs/runs -maxdepth 2 -type d -name 'checkpoint-*' -exec rm -rf {} + 2>/dev/null; "
+            "find /workspace/outputs/runs -maxdepth 2 -type d -name 'tmp-*' -exec rm -rf {} + 2>/dev/null; "
+            "echo 'Cleaned up checkpoints'; "
+            "df -h /workspace; "
+            "du -sh /workspace/outputs/runs/*/* 2>/dev/null"
+        ]
+    elif task == "disk_usage":
+        return ["bash", "-c", "df -h /workspace; echo '---'; du -sh /workspace/* 2>/dev/null; echo '---'; du -sh /workspace/outputs/runs/*/* 2>/dev/null"]
+    elif task == "shell":
+        # Run an arbitrary shell command (for debugging)
+        user_cmd = args.get("cmd", "echo 'No command provided'")
+        return ["bash", "-c", user_cmd]
     return None
 
 

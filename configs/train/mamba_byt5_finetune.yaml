@@ -7,12 +7,12 @@ output_dir: outputs/runs/mamba_byt5
 #   Stage 1: Adapter warmup — freeze ByT5, train only Mamba layers
 #   Stage 2: Full fine-tuning — unfreeze all, lower LR
 freeze_byt5_stage1: true
-stage1_epochs: 3
-stage1_lr: 1.0e-3
+stage1_epochs: 5
+stage1_lr: 5.0e-4     # Lower than before — base model is already strong (37.11)
 
 # Stage 2 config
 stage2_epochs: 10
-stage2_lr: 5.0e-5    # Lower LR for fine-tuning (ByT5 already pretrained)
+stage2_lr: 3.0e-5    # Gentle — preserve Track 1 quality while adapter adds value
 num_train_epochs: 10  # fallback
 learning_rate: 5.0e-5
 
@@ -34,7 +34,7 @@ eval_strategy: steps
 eval_steps: 200
 save_strategy: steps
 save_steps: 200
-save_total_limit: 3
+save_total_limit: 2
 load_best_model_at_end: true
 metric_for_best_model: competition_score
 greater_is_better: true
