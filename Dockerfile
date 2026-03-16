@@ -30,8 +30,9 @@ RUN python -c "from transformers import AutoTokenizer, AutoModelForSeq2SeqLM; \
 # Copy project
 COPY . .
 
-# Make scripts executable
-RUN chmod +x scripts/*.sh runpod_start.sh
+# Make scripts executable and fix line endings (Windows CRLF → Unix LF)
+RUN chmod +x scripts/*.sh runpod_start.sh && \
+    sed -i 's/\r$//' scripts/*.sh runpod_start.sh
 
 # Expose port 8888 for the web dashboard (RunPod HTTP service)
 EXPOSE 8888
@@ -39,5 +40,5 @@ EXPOSE 8888
 # Entrypoint: symlink persistent dirs to /workspace volume, then launch web dashboard.
 # All training outputs, processed data, and checkpoints persist across pod restarts.
 COPY entrypoint.sh /app/marduk/entrypoint.sh
-RUN chmod +x /app/marduk/entrypoint.sh
+RUN chmod +x /app/marduk/entrypoint.sh && sed -i 's/\r$//' /app/marduk/entrypoint.sh
 CMD ["/app/marduk/entrypoint.sh"]
