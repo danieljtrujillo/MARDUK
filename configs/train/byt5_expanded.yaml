@@ -1,0 +1,41 @@
+# Track 1: ByT5-base fine-tuning on expanded data (2,718 examples)
+# Starting from google/byt5-base (fresh), training on expanded dataset
+run_name: byt5_expanded
+seed: 17
+output_dir: outputs/runs/byt5_expanded
+
+# B200: aggressive batching
+per_device_train_batch_size: 16
+per_device_eval_batch_size: 32
+gradient_accumulation_steps: 4     # effective batch = 64
+
+# More data → can train longer without overfitting
+num_train_epochs: 15
+learning_rate: 3.0e-4
+weight_decay: 0.01
+warmup_ratio: 0.06
+lr_scheduler_type: cosine
+max_grad_norm: 1.0
+
+# Mixed precision
+bf16: true
+
+# Eval & save
+eval_strategy: steps
+eval_steps: 200
+save_strategy: steps
+save_steps: 200
+save_total_limit: 3
+load_best_model_at_end: true
+metric_for_best_model: competition_score
+greater_is_better: true
+
+# Generation during eval
+predict_with_generate: true
+
+# Logging
+logging_steps: 20
+report_to: none
+
+# Data
+fold: 0

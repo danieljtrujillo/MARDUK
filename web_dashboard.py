@@ -41,6 +41,8 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Regex to extract eval metrics from HF Trainer log lines
 _METRIC_RE = re.compile(r"'(eval_[a-z_]+|loss|learning_rate|epoch|grad_norm)'\s*:\s*([\d.eE+-]+)")
+# Regex to parse tqdm-style progress bars:  5%|█| 50/1000 [02:30<47:30, 3.00s/it]
+_TQDM_RE = re.compile(r"(\d+)%\|.*?\|\s*(\d+)/(\d+)\s*\[([\d:]+)<([\d:]+)")
 
 
 class ProcessManager:
@@ -50,9 +52,40 @@ class ProcessManager:
         self.log_buffer: list[str] = []
         self.running = False
         self.current_task = ""
+        self.start_time: float = 0.0         # process start timestamp
+        self.progress: dict = {}             # latest progress info
         self.live_train_metrics: dict = {}   # latest training step metrics
         self.live_eval_metrics: dict = {}    # latest eval metrics
         self.best_live_score: float = 0.0    # best competition_score seen live
+
+    @staticmethod
+    def _parse_time_str(s: str) -> int:
+        """Parse HH:MM:SS or MM:SS to total seconds."""
+        parts = s.split(":")
+        parts = [int(p) for p in parts]
+        if len(parts) == 3:
+            return parts[0] * 3600 + parts[1] * 60 + parts[2]
+        if len(parts) == 2:
+            return parts[0] * 60 + parts[1]
+        return parts[0]
+
+    def _parse_progress_from_log(self, text: str):
+        """Extract tqdm progress info from log lines."""
+        m = _TQDM_RE.search(text)
+        if not m:
+            return
+        pct, step, total, elapsed_s, remaining_s = m.groups()
+        elapsed_sec = self._parse_time_str(elapsed_s)
+        remaining_sec = self._parse_time_str(remaining_s)
+        self.progress = {
+            "pct": int(pct),
+            "step": int(step),
+            "total": int(total),
+            "elapsed": elapsed_s,
+            "elapsed_sec": elapsed_sec,
+            "eta": remaining_s,
+            "eta_sec": remaining_sec,
+        }
 
     def _parse_metrics_from_log(self, text: str):
         """Extract metrics from HF Trainer log lines like {'loss': 2.3, ...}."""
@@ -78,9 +111,11 @@ class ProcessManager:
 
     async def broadcast(self, message: dict):
         self.log_buffer.append(json.dumps(message))
-        # Parse metrics from log lines
+        # Parse metrics and progress from log lines
         if message.get("type") == "log":
-            self._parse_metrics_from_log(message.get("text", ""))
+            text = message.get("text", "")
+            self._parse_metrics_from_log(text)
+            self._parse_progress_from_log(text)
         # Keep last 5000 lines
         if len(self.log_buffer) > 5000:
             self.log_buffer = self.log_buffer[-5000:]
@@ -99,7 +134,9 @@ class ProcessManager:
             return
         self.running = True
         self.current_task = task_name
+        self.start_time = time.time()
         self.log_buffer.clear()
+        self.progress.clear()
         self.live_train_metrics.clear()
         self.live_eval_metrics.clear()
         self.best_live_score = 0.0
@@ -195,7 +232,14 @@ async def api_hardware():
 
 @app.get("/api/status")
 async def api_status():
-    return {"running": pm.running, "task": pm.current_task}
+    result = {
+        "running": pm.running,
+        "task": pm.current_task,
+        "start_time": pm.start_time,
+        "elapsed_sec": round(time.time() - pm.start_time) if pm.running else 0,
+        "progress": pm.progress,
+    }
+    return result
 
 
 @app.get("/api/metrics")
@@ -232,6 +276,8 @@ async def api_metrics():
             "best_live_score": pm.best_live_score,
             "is_training": pm.running,
             "current_task": pm.current_task,
+            "progress": pm.progress.copy(),
+            "elapsed_sec": round(time.time() - pm.start_time) if pm.running else 0,
         },
     }
     return result
@@ -314,6 +360,14 @@ def _build_command(task: str, args: dict) -> list[str] | None:
             "--view-config", args.get("view_config", "configs/data/dual_view.yaml"),
             "--model-config", args.get("model_config", "configs/model/byt5_base.yaml"),
             "--train-config", args.get("train_config", "configs/train/byt5_finetune.yaml"),
+        ]
+    elif task == "train_byt5_expanded":
+        return [
+            PYTHON, "-m", "src.train.train_byt5",
+            "--data-config", args.get("data_config", "configs/data/raw.yaml"),
+            "--view-config", args.get("view_config", "configs/data/dual_view.yaml"),
+            "--model-config", args.get("model_config", "configs/model/byt5_base.yaml"),
+            "--train-config", args.get("train_config", "configs/train/byt5_expanded.yaml"),
         ]
     elif task == "expand_data":
         return [

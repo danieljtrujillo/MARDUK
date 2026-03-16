@@ -22,21 +22,25 @@ except ImportError:
 
 
 class BiMambaAdapter(nn.Module):
-    """Single bidirectional Mamba adapter block with residual connection.
+    """Single bidirectional Mamba adapter block with gated residual connection.
 
     Runs forward and backward SSMs in parallel, projects back to d_model,
-    and adds a residual. The projection is zero-initialized so the adapter
-    starts as identity (doesn't disrupt pretrained ByT5 representations).
+    and adds a gated residual. A learned scalar gate (init=0) guarantees
+    the adapter starts as strict identity, preserving ByT5 representations.
     """
 
-    def __init__(self, d_model: int, d_state: int = 16, d_conv: int = 4, expand: int = 2):
+    def __init__(self, d_model: int, d_state: int = 16, d_conv: int = 4, expand: int = 2, dropout: float = 0.1):
         super().__init__()
         self.norm = nn.LayerNorm(d_model)
         self.mamba_fwd = Mamba(d_model=d_model, d_state=d_state, d_conv=d_conv, expand=expand)
         self.mamba_bwd = Mamba(d_model=d_model, d_state=d_state, d_conv=d_conv, expand=expand)
         self.proj = nn.Linear(d_model * 2, d_model)
+        self.dropout = nn.Dropout(dropout)
 
-        # Zero-init projection → adapter starts as identity
+        # Learned gate starts at 0 → adapter output is exactly 0 at init
+        self.gate = nn.Parameter(torch.tensor(0.0))
+
+        # Zero-init projection as additional safety
         nn.init.zeros_(self.proj.weight)
         nn.init.zeros_(self.proj.bias)
 
@@ -45,28 +49,35 @@ class BiMambaAdapter(nn.Module):
         fwd_out = self.mamba_fwd(h)
         bwd_out = self.mamba_bwd(h.flip(dims=[1])).flip(dims=[1])
         combined = torch.cat([fwd_out, bwd_out], dim=-1)
-        return x + self.proj(combined)
+        adapter_out = self.dropout(self.proj(combined))
+        return x + self.gate * adapter_out
 
 
 class GRUAdapterFallback(nn.Module):
     """Fallback adapter using bidirectional GRU when mamba-ssm is unavailable."""
 
-    def __init__(self, d_model: int):
+    def __init__(self, d_model: int, dropout: float = 0.1):
         super().__init__()
         self.norm = nn.LayerNorm(d_model)
         self.gru = nn.GRU(d_model, d_model // 2, batch_first=True, bidirectional=True)
         self.proj = nn.Linear(d_model, d_model)
+        self.dropout = nn.Dropout(dropout)
+        self.gate = nn.Parameter(torch.tensor(0.0))
         nn.init.zeros_(self.proj.weight)
         nn.init.zeros_(self.proj.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         h = self.norm(x)
         out, _ = self.gru(h)
-        return x + self.proj(out)
+        return x + self.gate * self.dropout(self.proj(out))
 
 
 class MambaAdapterStack(nn.Module):
-    """Stack of BiMamba adapter layers for post-encoder processing."""
+    """Stack of BiMamba adapter layers for post-encoder processing.
+
+    No final LayerNorm — ByT5 encoder already has one. No stack-level dropout —
+    each adapter block handles its own dropout inside the gated residual.
+    """
 
     def __init__(
         self,
@@ -81,20 +92,19 @@ class MambaAdapterStack(nn.Module):
         super().__init__()
         if use_mamba and MAMBA_AVAILABLE:
             self.layers = nn.ModuleList([
-                BiMambaAdapter(d_model, d_state, d_conv, expand)
+                BiMambaAdapter(d_model, d_state, d_conv, expand, dropout=dropout)
                 for _ in range(n_layers)
             ])
         else:
             self.layers = nn.ModuleList([
-                GRUAdapterFallback(d_model) for _ in range(n_layers)
+                GRUAdapterFallback(d_model, dropout=dropout)
+                for _ in range(n_layers)
             ])
-        self.dropout = nn.Dropout(dropout)
-        self.final_norm = nn.LayerNorm(d_model)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
-            hidden_states = self.dropout(layer(hidden_states))
-        return self.final_norm(hidden_states)
+            hidden_states = layer(hidden_states)
+        return hidden_states
 
 
 class MambaEnhancedEncoderWrapper(nn.Module):

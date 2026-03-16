@@ -571,6 +571,15 @@
                 <div><span style="font-size:11px;color:var(--text-muted);">Eval Score</span><div id="live-eval-score" style="font-size:18px;font-weight:600;font-family:var(--font-mono);color:var(--gold);">—</div></div>
                 <div><span style="font-size:11px;color:var(--text-muted);">LR</span><div id="live-lr" style="font-size:18px;font-weight:600;font-family:var(--font-mono);">—</div></div>
               </div>
+              <div style="margin-top:10px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:4px;">
+                  <span id="live-progress-label">—</span>
+                  <span id="live-eta" style="color:var(--accent);font-weight:600;">—</span>
+                </div>
+                <div style="background:#21262d;border-radius:4px;height:6px;overflow:hidden;">
+                  <div id="live-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent-hover));border-radius:4px;transition:width 0.5s;"></div>
+                </div>
+              </div>
               <div id="live-status" style="margin-top:8px;font-size:12px;color:var(--text-muted);">No training in progress</div>
             </div>
           </div>
@@ -645,6 +654,7 @@
           <div class="btn-group">
             <button class="btn btn-primary btn-run" onclick="runTask('train')">▶ Hybrid Train</button>
             <button class="btn btn-primary btn-run" onclick="runTask('train_byt5')" style="background:#6d28d9;">▶ ByT5 Train</button>
+            <button class="btn btn-primary btn-run" onclick="runTask('train_byt5_expanded')" style="background:#059669;">▶ ByT5 Expanded</button>
             <button class="btn btn-primary btn-run" onclick="runTask('train_mamba_byt5')" style="background:var(--gold);color:#000;">▶ Mamba-ByT5 Train</button>
             <button class="btn btn-danger" onclick="killProcess()" id="kill-btn" disabled>■ Stop</button>
           </div>
@@ -770,6 +780,36 @@
 let ws = null;
 let isRunning = false;
 
+// ── tqdm progress parser ──
+const _TQDM_RE = /(\d+)%\|.*?\|\s*(\d+)\/(\d+)\s*\[([\d:]+)<([\d:]+)/;
+
+function parseTqdmProgress(text) {
+  const m = _TQDM_RE.exec(text);
+  if (!m) return null;
+  return { pct: parseInt(m[1]), step: parseInt(m[2]), total: parseInt(m[3]), elapsed: m[4], eta: m[5] };
+}
+
+function updateProgress(prog) {
+  if (!prog) return;
+  document.getElementById('live-progress-bar').style.width = prog.pct + '%';
+  document.getElementById('live-progress-label').textContent = 'Step ' + prog.step + '/' + prog.total + ' (' + prog.pct + '%)';
+  document.getElementById('live-eta').textContent = 'ETA: ' + prog.eta + ' | Elapsed: ' + prog.elapsed;
+  // Also update the console progress bar
+  const fill = document.getElementById('progress-bar').querySelector('.fill');
+  if (fill) { fill.style.width = prog.pct + '%'; }
+  // Update status indicator with ETA
+  if (isRunning) {
+    const statusText = document.getElementById('status-text');
+    statusText.innerHTML = '<span class="pulse"></span> ' + prog.pct + '% — ETA: ' + prog.eta;
+  }
+}
+
+function clearProgress() {
+  document.getElementById('live-progress-bar').style.width = '0%';
+  document.getElementById('live-progress-label').textContent = '—';
+  document.getElementById('live-eta').textContent = '—';
+}
+
 // ── WebSocket ──
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -794,6 +834,7 @@ function handleMessage(msg) {
     case 'log':
       appendLog(msg.text);
       updateLiveMetrics(parseMetricsFromLog(msg.text));
+      updateProgress(parseTqdmProgress(msg.text));
       break;
     case 'started':
       setRunning(true, msg.task);
@@ -918,11 +959,15 @@ function setRunning(running, task) {
     statusText.innerHTML = '<span class="pulse"></span> Running: ' + (task || '');
     killBtn.disabled = false;
     progress.classList.add('indeterminate');
+    document.getElementById('live-status').innerHTML =
+      '<span style="color:var(--success)">Running: ' + (task || '') + '</span>';
   } else {
     indicator.className = 'status-indicator idle';
     statusText.textContent = 'Idle';
     killBtn.disabled = true;
     progress.classList.remove('indeterminate');
+    clearProgress();
+    document.getElementById('live-status').textContent = 'No training in progress';
   }
 
   // Disable/enable all run buttons
@@ -1054,6 +1099,11 @@ async function fetchMetrics() {
       }
       if (live.training.learning_rate) {
         document.getElementById('live-lr').textContent = live.training.learning_rate.toExponential(1);
+      }
+      // Progress / ETA from server
+      const prog = live.progress;
+      if (prog && prog.pct !== undefined) {
+        updateProgress(prog);
       }
     } else {
       document.getElementById('live-status').textContent = 'No training in progress';

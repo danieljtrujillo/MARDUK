@@ -346,7 +346,17 @@ async function fetchFromPod() {
 
     // Live training
     if (live.is_training) {
-      status.innerHTML = '<span style="color:var(--green)">Connected — training ' + live.current_task + '</span>';
+      let statusText = 'Connected — training ' + live.current_task;
+      const prog = live.progress;
+      if (prog && prog.pct !== undefined) {
+        statusText += ' (' + prog.pct + '% — step ' + prog.step + '/' + prog.total;
+        if (prog.eta) statusText += ', ETA ' + prog.eta;
+        statusText += ')';
+      } else if (live.elapsed_sec) {
+        const m = Math.floor(live.elapsed_sec / 60);
+        statusText += ' (' + m + 'm elapsed)';
+      }
+      status.innerHTML = '<span style="color:var(--green)">' + statusText + '</span>';
       if (live.best_live_score > 0) {
         const bp = document.getElementById('bp-phase2');
         bp.textContent = '🔄 Phase 2: ' + live.best_live_score.toFixed(1);
