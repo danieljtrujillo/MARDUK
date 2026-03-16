@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -22,3 +23,10 @@ def dump_yaml(obj: dict[str, Any], path: str | Path) -> None:
     ensure_dir(path.parent)
     with open(path, "w", encoding="utf-8") as f:
         yaml.safe_dump(obj, f, sort_keys=False, allow_unicode=True)
+
+
+def write_json(obj: Any, path: str | Path) -> None:
+    path = Path(path)
+    ensure_dir(path.parent)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(obj, f, indent=2, ensure_ascii=False)

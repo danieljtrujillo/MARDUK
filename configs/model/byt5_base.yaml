@@ -1,0 +1,15 @@
+# ByT5-base model config for Akkadian→English translation
+# ByT5 is byte-level: handles Akkadian's Unicode natively without custom tokenization
+model_name_or_path: google/byt5-base
+
+# Byte-level: ByT5 uses ~384 byte tokens, no sentencepiece needed
+# Source max = 1024 bytes, Target max = 256 bytes
+source_max_length: 1024
+target_max_length: 256
+
+# Generation parameters
+generation:
+  num_beams: 5
+  length_penalty: 0.9
+  no_repeat_ngram_size: 3
+  early_stopping: true

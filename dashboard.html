@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MARDUK — Competition Dashboard</title>
+<style>
+  :root { --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #c9d1d9;
+    --dim: #8b949e; --accent: #58a6ff; --green: #3fb950; --yellow: #d29922;
+    --red: #f85149; --orange: #db6d28; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg);
+    color: var(--text); padding: 24px; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; color: #fff; margin-bottom: 4px; }
+  .subtitle { color: var(--dim); font-size: 13px; margin-bottom: 24px; }
+  .grid { display: grid; gap: 16px; margin-bottom: 20px; }
+  .g2 { grid-template-columns: 1fr 1fr; }
+  .g3 { grid-template-columns: 1fr 1fr 1fr; }
+  .g4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+  .card { background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; }
+  .card h2 { font-size: 13px; color: var(--dim); text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 10px; font-weight: 500; }
+  .big { font-size: 32px; font-weight: 700; line-height: 1.1; }
+  .big small { font-size: 14px; font-weight: 400; color: var(--dim); }
+  .bar-wrap { background: #21262d; border-radius: 4px; height: 8px; margin-top: 8px; overflow: hidden; }
+  .bar { height: 100%; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--dim); font-weight: 500; padding: 6px 8px;
+    border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.3px; }
+  td { padding: 6px 8px; border-bottom: 1px solid #21262d; }
+  tr:last-child td { border-bottom: none; }
+  .r { text-align: right; font-variant-numeric: tabular-nums; }
+  .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 12px;
+    font-weight: 500; }
+  .tag-green { background: #0d2818; color: var(--green); }
+  .tag-yellow { background: #2d2000; color: var(--yellow); }
+  .tag-red { background: #2d0000; color: var(--red); }
+  .tag-blue { background: #0d1f3c; color: var(--accent); }
+  .tag-dim { background: #21262d; color: var(--dim); }
+  .phase { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid #21262d; }
+  .phase:last-child { border-bottom: none; }
+  .phase-num { font-size: 11px; font-weight: 700; color: var(--bg); background: var(--accent);
+    width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .phase-title { font-weight: 600; font-size: 14px; }
+  .phase-desc { color: var(--dim); font-size: 12px; margin-top: 2px; }
+  .score-target { color: var(--green); font-size: 12px; font-weight: 600; }
+  .lb-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+  .lb-rank { color: var(--dim); font-size: 12px; width: 28px; text-align: right; }
+  .lb-bar { flex: 1; height: 20px; background: #21262d; border-radius: 3px; position: relative; overflow: hidden; }
+  .lb-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; padding: 0 6px; font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }
+  .lb-score { font-size: 12px; width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+  .you-marker { border: 2px solid var(--yellow); border-radius: 5px; padding: 1px; }
+  .sep { border-top: 1px dashed var(--border); margin: 4px 0; }
+  @media (max-width: 800px) { .g2,.g3,.g4 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<h1>MARDUK Competition Dashboard</h1>
+<p class="subtitle">Deep Past Challenge — Akkadian → English &nbsp;|&nbsp; $50K &nbsp;|&nbsp; Deadline: Mar 23, 2026</p>
+
+<!-- Connection Banner -->
+<div style="margin-bottom:16px;padding:10px 14px;background:#0d1f3c;border:1px solid #1d3461;border-radius:8px;display:flex;align-items:center;gap:12px;font-size:12px;">
+  <span id="conn-dot" style="width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;"></span>
+  <span id="conn-status" style="color:var(--dim)">Not connected</span>
+  <input id="pod-url" type="text" placeholder="https://POD_ID-8888.proxy.runpod.net" style="flex:1;background:#161b22;border:1px solid var(--border);border-radius:4px;padding:4px 8px;color:var(--text);font-size:12px;font-family:monospace;" />
+  <button onclick="connectToPod()" style="background:#58a6ff;color:#000;border:none;border-radius:4px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;">Connect</button>
+</div>
+
+<!-- KPIs -->
+<div class="grid g4">
+  <div class="card">
+    <h2>Your Score</h2>
+    <div class="big" id="kpi-score" style="color:var(--yellow)">15.32</div>
+    <div id="kpi-run" style="color:var(--dim);font-size:12px;margin-top:4px">Best checkpoint (B200 run)</div>
+  </div>
+  <div class="card">
+    <h2>Rank (est.)</h2>
+    <div class="big" id="kpi-rank">#2,473 <small>/ 2,951</small></div>
+    <div class="bar-wrap"><div class="bar" id="kpi-rank-bar" style="width:16.2%;background:var(--yellow)"></div></div>
+  </div>
+  <div class="card">
+    <h2>BLEU</h2>
+    <div class="big" id="kpi-bleu" style="color:var(--accent)">8.04</div>
+    <div style="color:var(--dim);font-size:12px;margin-top:4px">SacreBLEU</div>
+  </div>
+  <div class="card">
+    <h2>chrF++</h2>
+    <div class="big" id="kpi-chrf" style="color:var(--accent)">29.21</div>
+    <div style="color:var(--dim);font-size:12px;margin-top:4px">chrF++ score</div>
+  </div>
+</div>
+
+<!-- Leaderboard Snapshot -->
+<div class="grid g2">
+  <div class="card">
+    <h2>Leaderboard Snapshot</h2>
+    <div class="lb-row">
+      <span class="lb-rank">#1</span>
+      <div class="lb-bar"><div class="lb-fill" style="width:100%;background:#58a6ff">KE WU</div></div>
+      <span class="lb-score">40.6</span>
+    </div>
+    <div class="lb-row">
+      <span class="lb-rank">#5</span>
+      <div class="lb-bar"><div class="lb-fill" style="width:97%;background:#58a6ff">DataTech Club</div></div>
+      <span class="lb-score">39.4</span>
+    </div>
+    <div class="lb-row">
+      <span class="lb-rank">#20</span>
+      <div class="lb-bar"><div class="lb-fill" style="width:93%;background:#388bfd">Overfitting since 2000 BC</div></div>
+      <span class="lb-score">37.7</span>
+    </div>
+    <div class="sep"></div>
+    <div class="lb-row">
+      <span class="lb-rank">50%</span>
+      <div class="lb-bar"><div class="lb-fill" style="width:80%;background:var(--dim)">— Median —</div></div>
+      <span class="lb-score">32.5</span>
+    </div>
+    <div class="sep"></div>
+    <div class="lb-row you-marker">
+      <span class="lb-rank" style="color:var(--yellow)" id="lb-you-rank">#2473</span>
+      <div class="lb-bar"><div class="lb-fill" id="lb-you-fill" style="width:37.7%;background:var(--yellow)">YOU (MARDUK)</div></div>
+      <span class="lb-score" style="color:var(--yellow)" id="lb-you-score">15.3</span>
+    </div>
+    <div class="sep"></div>
+    <div class="lb-row">
+      <span class="lb-rank">Last</span>
+      <div class="lb-bar"><div class="lb-fill" style="width:1%;background:#21262d"></div></div>
+      <span class="lb-score">0.0</span>
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--dim)" id="lb-gaps">
+      Gap to median: <strong style="color:var(--red)">-17.2 pts</strong> &nbsp;|&nbsp;
+      Gap to prize: <strong style="color:var(--red)">-22.4 pts</strong> &nbsp;|&nbsp;
+      Gap to #1: <strong style="color:var(--red)">-25.3 pts</strong>
+    </div>
+  </div>
+
+  <!-- Score Distribution -->
+  <div class="card">
+    <h2>Score Distribution (2,951 teams)</h2>
+    <table>
+      <tr><th>Percentile</th><th>Score</th><th>≈ Rank</th><th>Tier</th></tr>
+      <tr><td>Top 1%</td><td class="r">37.7+</td><td class="r">~30</td><td><span class="tag tag-green">Prize</span></td></tr>
+      <tr><td>Top 10%</td><td class="r">35.7</td><td class="r">~295</td><td><span class="tag tag-blue">Strong</span></td></tr>
+      <tr><td>Top 25%</td><td class="r">33.8</td><td class="r">~738</td><td><span class="tag tag-blue">Competitive</span></td></tr>
+      <tr><td>Median</td><td class="r">32.5</td><td class="r">~1,475</td><td><span class="tag tag-dim">Middle</span></td></tr>
+      <tr><td>Top 75%</td><td class="r">23.3</td><td class="r">~2,213</td><td><span class="tag tag-dim">Below avg</span></td></tr>
+      <tr style="background:#2d200011"><td><strong>You</strong></td><td class="r" style="color:var(--yellow)" id="dist-you-score"><strong>15.3</strong></td><td class="r" style="color:var(--yellow)" id="dist-you-rank"><strong>~2,473</strong></td><td><span class="tag tag-yellow" id="dist-you-tag">Bottom 17%</span></td></tr>
+      <tr><td>Top 90%</td><td class="r">7.9</td><td class="r">~2,656</td><td><span class="tag tag-red">Minimal</span></td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- Data Inventory -->
+<div class="card" style="margin-bottom:16px">
+  <h2>Data Inventory</h2>
+  <table>
+    <tr><th>Resource</th><th>Rows</th><th>What It Is</th><th>Status</th></tr>
+    <tr><td>train.csv</td><td class="r">1,561</td><td>Parallel transliteration → translation pairs</td><td><span class="tag tag-green">In use</span></td></tr>
+    <tr><td>augmented_pairs.csv</td><td class="r">1,157</td><td>OARE cross-ref tablet-level pairs</td><td><span class="tag tag-green">In use (Phase 2)</span></td></tr>
+    <tr><td>Sentences_Oare</td><td class="r">9,772</td><td>Translations from 1,700 texts</td><td><span class="tag tag-green">Used for augmentation</span></td></tr>
+    <tr><td>published_texts.csv</td><td class="r">7,953</td><td>Full transliterations (cross-ref'd)</td><td><span class="tag tag-green">Used for augmentation</span></td></tr>
+    <tr><td>eBL_Dictionary</td><td class="r">19,215</td><td>Akkadian word → English definition</td><td><span class="tag tag-yellow">Phase 3</span></td></tr>
+    <tr><td>OA_Lexicon_eBL</td><td class="r">39,332</td><td>Names (13.4K), places (334), words (25.6K)</td><td><span class="tag tag-yellow">BIO labels only</span></td></tr>
+    <tr><td>publications.csv</td><td class="r">216,602</td><td>OCR'd pages from Akkadian publications</td><td><span class="tag tag-red">Unused</span></td></tr>
+  </table>
+  <div id="data-summary" style="margin-top:10px;font-size:12px;color:var(--dim)">
+    Current effective training set: <strong>~2,718</strong> pairs (1,561 original + 1,157 augmented)
+  </div>
+</div>
+
+<!-- Battle Plan -->
+<div class="card">
+  <h2>Battle Plan — 8 Days to Prize Range</h2>
+  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <span class="tag tag-green">✅ Phase 1: 31.7</span>
+    <span style="color:var(--dim)">→</span>
+    <span class="tag tag-blue" id="bp-phase2">🔄 Phase 2: training…</span>
+    <span style="color:var(--dim)">→</span>
+    <span class="tag tag-dim">Phase 3: ~38</span>
+    <span style="color:var(--dim)">→</span>
+    <span class="tag tag-dim">Phase 4: 38+</span>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">1</div>
+    <div>
+      <div class="phase-title">Pretrained Backbone <span class="score-target">→ ~33 pts</span></div>
+      <div class="phase-desc">Fine-tune ByT5-base on existing data using HuggingFace Seq2SeqTrainer. Byte-level model = natural fit for Akkadian. This alone should jump ~2,000 ranks.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">2</div>
+    <div>
+      <div class="phase-title">Inject Mamba SSM Adapters <span class="score-target">→ ~36 pts</span></div>
+      <div class="phase-desc">Insert your BiMamba adapter blocks into the ByT5 encoder every 4 layers. SSM long-range modeling improves structured spans (names, numbers, formulae). Your novel contribution.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">3</div>
+    <div>
+      <div class="phase-title">Data Expansion + Lexicon Decoding <span class="score-target">→ ~38 pts</span></div>
+      <div class="phase-desc">Cross-ref Sentences_Oare × published_texts for more parallel data. Dictionary-guided constrained decoding. Post-process names/numbers using OA Lexicon lookups.</div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">4</div>
+    <div>
+      <div class="phase-title">Kaggle Submission + Polish <span class="score-target">→ 38+ pts</span></div>
+      <div class="phase-desc">Build kernels-only notebook. Upload weights to Kaggle Dataset. Optimize for 9h runtime on T4. Iterate on beam search params, ensemble if time permits.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Key Insight -->
+<div class="card" style="margin-top:16px;border-color:var(--accent)">
+  <h2 style="color:var(--accent)">Why This Works</h2>
+  <table style="font-size:13px">
+    <tr>
+      <td style="width:50%;vertical-align:top;padding-right:20px">
+        <strong style="color:var(--red)">Current problem:</strong> Training 59M params from scratch on 8K pairs. Model must learn English + Akkadian + translation simultaneously. Not enough data.
+      </td>
+      <td style="vertical-align:top">
+        <strong style="color:var(--green)">Fix:</strong> ByT5-base (580M params) already knows 100+ languages & translation patterns. Only needs to learn Akkadian mapping. Mamba adapters add novel long-range SSM modeling on top.
+      </td>
+    </tr>
+  </table>
+</div>
+
+<div style="margin-top:16px;font-size:11px;color:var(--dim);text-align:center">
+  Leaderboard data: Kaggle API (Mar 15, 2026) &nbsp;|&nbsp; 2,951 teams &nbsp;|&nbsp; Metric: √(BLEU × chrF++) &nbsp;|&nbsp;
+  <span id="last-update" style="color:var(--accent)">Scores update automatically when connected to pod</span>
+</div>
+
+<script>
+// Leaderboard distribution approximation (score → rank) from 2,951 teams
+// Based on actual Kaggle leaderboard data
+const LB_POINTS = [
+  [40.6, 1], [39.4, 5], [37.7, 20], [35.7, 295],
+  [33.8, 738], [32.5, 1475], [23.3, 2213], [7.9, 2656], [0, 2951]
+];
+
+function estimateRank(score) {
+  if (score >= LB_POINTS[0][0]) return 1;
+  if (score <= 0) return 2951;
+  for (let i = 0; i < LB_POINTS.length - 1; i++) {
+    const [s1, r1] = LB_POINTS[i];
+    const [s2, r2] = LB_POINTS[i + 1];
+    if (score <= s1 && score >= s2) {
+      const t = (s1 - score) / (s1 - s2);
+      return Math.round(r1 + t * (r2 - r1));
+    }
+  }
+  return 2951;
+}
+
+function estimateTier(rank) {
+  if (rank <= 20) return ['Prize', 'tag-green'];
+  if (rank <= 295) return ['Strong', 'tag-blue'];
+  if (rank <= 738) return ['Competitive', 'tag-blue'];
+  if (rank <= 1475) return ['Middle', 'tag-dim'];
+  if (rank <= 2213) return ['Below avg', 'tag-dim'];
+  if (rank <= 2656) return ['Bottom 17%', 'tag-yellow'];
+  return ['Minimal', 'tag-red'];
+}
+
+let podUrl = localStorage.getItem('marduk_pod_url') || '';
+let pollInterval = null;
+
+function connectToPod() {
+  const input = document.getElementById('pod-url');
+  podUrl = input.value.replace(/\/+$/, '');
+  if (!podUrl) return;
+  localStorage.setItem('marduk_pod_url', podUrl);
+  fetchFromPod();
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(fetchFromPod, 10000);
+}
+
+async function fetchFromPod() {
+  const dot = document.getElementById('conn-dot');
+  const status = document.getElementById('conn-status');
+  try {
+    const resp = await fetch(podUrl + '/api/metrics', { signal: AbortSignal.timeout(8000) });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    dot.style.background = 'var(--green)';
+    dot.style.boxShadow = '0 0 6px var(--green)';
+
+    const best = data.best || {};
+    const live = data.live || {};
+    const comp = best.competition_score ?? best.eval_competition_score;
+    const bleu = best.sacrebleu ?? best.eval_sacrebleu;
+    const chrf = best.chrf ?? best.eval_chrf;
+    const runName = best._run || '—';
+
+    if (comp !== undefined) {
+      document.getElementById('kpi-score').textContent = comp.toFixed(2);
+      document.getElementById('kpi-run').textContent = 'Best: ' + runName;
+
+      const rank = estimateRank(comp);
+      const pct = ((2951 - rank) / 2951 * 100).toFixed(1);
+      document.getElementById('kpi-rank').innerHTML = '#' + rank.toLocaleString() + ' <small>/ 2,951</small>';
+      document.getElementById('kpi-rank-bar').style.width = pct + '%';
+      if (rank <= 20) {
+        document.getElementById('kpi-rank-bar').style.background = 'var(--green)';
+        document.getElementById('kpi-score').style.color = 'var(--green)';
+      } else if (comp >= 32.5) {
+        document.getElementById('kpi-rank-bar').style.background = 'var(--accent)';
+        document.getElementById('kpi-score').style.color = 'var(--accent)';
+      }
+
+      // Update leaderboard you-row
+      document.getElementById('lb-you-rank').textContent = '#' + rank.toLocaleString();
+      document.getElementById('lb-you-score').textContent = comp.toFixed(1);
+      document.getElementById('lb-you-fill').style.width = (comp / 40.6 * 100).toFixed(1) + '%';
+
+      // Update gaps
+      const gapMedian = comp - 32.5;
+      const gapPrize = comp - 37.7;
+      const gapFirst = comp - 40.6;
+      const fmt = (v) => {
+        const sign = v >= 0 ? '+' : '';
+        const color = v >= 0 ? 'var(--green)' : 'var(--red)';
+        return '<strong style="color:' + color + '">' + sign + v.toFixed(1) + ' pts</strong>';
+      };
+      document.getElementById('lb-gaps').innerHTML =
+        'Gap to median: ' + fmt(gapMedian) + ' &nbsp;|&nbsp; Gap to prize: ' + fmt(gapPrize) + ' &nbsp;|&nbsp; Gap to #1: ' + fmt(gapFirst);
+
+      // Distribution table you-row
+      const [tier, tierCls] = estimateTier(rank);
+      document.getElementById('dist-you-score').innerHTML = '<strong>' + comp.toFixed(1) + '</strong>';
+      document.getElementById('dist-you-rank').innerHTML = '<strong>~' + rank.toLocaleString() + '</strong>';
+      document.getElementById('dist-you-tag').className = 'tag ' + tierCls;
+      document.getElementById('dist-you-tag').textContent = tier;
+    }
+    if (bleu !== undefined) document.getElementById('kpi-bleu').textContent = bleu.toFixed(2);
+    if (chrf !== undefined) document.getElementById('kpi-chrf').textContent = chrf.toFixed(2);
+
+    // Live training
+    if (live.is_training) {
+      status.innerHTML = '<span style="color:var(--green)">Connected — training ' + live.current_task + '</span>';
+      if (live.best_live_score > 0) {
+        const bp = document.getElementById('bp-phase2');
+        bp.textContent = '🔄 Phase 2: ' + live.best_live_score.toFixed(1);
+        bp.className = 'tag tag-blue';
+      }
+    } else {
+      status.innerHTML = '<span style="color:var(--accent)">Connected — idle</span>';
+    }
+
+    // Update runs info in battle plan
+    const runs = data.runs || {};
+    const runNames = Object.keys(runs);
+    if (runNames.length > 0) {
+      // Check if mamba run exists
+      const mambaRun = runs.mamba_byt5;
+      if (mambaRun) {
+        const ms = mambaRun.competition_score ?? mambaRun.eval_competition_score ?? 0;
+        const bp = document.getElementById('bp-phase2');
+        bp.textContent = '✅ Phase 2: ' + ms.toFixed(1);
+        bp.className = 'tag tag-green';
+      }
+    }
+
+    document.getElementById('last-update').textContent = 'Last update: ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    dot.style.background = 'var(--red)';
+    dot.style.boxShadow = '0 0 6px var(--red)';
+    status.innerHTML = '<span style="color:var(--red)">Connection failed: ' + e.message + '</span>';
+  }
+}
+
+// Init: load saved pod URL
+window.addEventListener('DOMContentLoaded', () => {
+  if (podUrl) {
+    document.getElementById('pod-url').value = podUrl;
+    connectToPod();
+  }
+});
+</script>
+
+</body>
+</html>

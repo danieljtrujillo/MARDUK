@@ -22,12 +22,22 @@ RUN pip install --no-cache-dir -r requirements.txt
 # mamba-ssm builds from source (needs CUDA toolkit from devel image)
 RUN pip install --no-cache-dir "mamba-ssm>=2.2.2"
 
+# Pre-download ByT5-base weights so training doesn't wait for downloads
+RUN python -c "from transformers import AutoTokenizer, AutoModelForSeq2SeqLM; \
+    AutoTokenizer.from_pretrained('google/byt5-base'); \
+    AutoModelForSeq2SeqLM.from_pretrained('google/byt5-base')"
+
 # Copy project
 COPY . .
 
 # Make scripts executable
 RUN chmod +x scripts/*.sh runpod_start.sh
 
-# Auto-start: run the pipeline, then keep alive for inspection via web terminal.
-# Outputs are symlinked to /workspace (persistent volume) so they survive restarts.
-CMD ["bash", "-c", "mkdir -p /workspace/outputs && ln -sfn /workspace/outputs /app/marduk/outputs && cd /app/marduk && bash runpod_start.sh 2>&1; echo 'Pipeline finished. Container staying alive for inspection.'; sleep infinity"]
+# Expose port 8888 for the web dashboard (RunPod HTTP service)
+EXPOSE 8888
+
+# Entrypoint: symlink persistent dirs to /workspace volume, then launch web dashboard.
+# All training outputs, processed data, and checkpoints persist across pod restarts.
+COPY entrypoint.sh /app/marduk/entrypoint.sh
+RUN chmod +x /app/marduk/entrypoint.sh
+CMD ["/app/marduk/entrypoint.sh"]

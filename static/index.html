@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MARDUK — Control Panel</title>
+<style>
+  :root {
+    --bg-primary: #0f0f13;
+    --bg-secondary: #16161d;
+    --bg-tertiary: #1c1c27;
+    --bg-card: #1e1e2a;
+    --bg-input: #252535;
+    --bg-hover: #2a2a3a;
+    --border: #2d2d40;
+    --border-focus: #6366f1;
+    --text-primary: #e8e8f0;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+    --accent: #6366f1;
+    --accent-hover: #818cf8;
+    --accent-glow: rgba(99, 102, 241, 0.15);
+    --success: #34d399;
+    --success-bg: rgba(52, 211, 153, 0.1);
+    --error: #f87171;
+    --error-bg: rgba(248, 113, 113, 0.1);
+    --warning: #fbbf24;
+    --warning-bg: rgba(251, 191, 36, 0.1);
+    --gold: #c9a44e;
+    --console-bg: #0a0a10;
+    --scrollbar: #333350;
+    --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  @font-face {
+    font-family: 'Inter';
+    src: local('Inter');
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #444460; }
+
+  /* Layout */
+  .app-container {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 2px;
+  }
+
+  .logo span {
+    color: var(--text-muted);
+    font-size: 15px;
+    font-weight: 400;
+    letter-spacing: 0;
+    margin-left: 8px;
+  }
+
+  .hw-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  .hw-banner .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .hw-banner .dot.green { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .hw-banner .dot.red { background: var(--error); box-shadow: 0 0 6px var(--error); }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+  }
+
+  .status-indicator.idle { color: var(--text-muted); }
+  .status-indicator.running { color: var(--success); border-color: rgba(52, 211, 153, 0.3); background: var(--success-bg); }
+
+  .pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* Main area */
+  .main-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* Tabs panel (left) */
+  .tabs-panel {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .tab-bar {
+    display: flex;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 0 8px;
+    flex-shrink: 0;
+  }
+
+  .tab-btn {
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: var(--font-sans);
+    white-space: nowrap;
+  }
+
+  .tab-btn:hover { color: var(--text-secondary); background: var(--bg-hover); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* Console panel (right) */
+  .console-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--console-bg);
+  }
+
+  .console-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .console-header h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .console-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .console-output {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #b4b4cc;
+  }
+
+  .console-output .log-error { color: var(--error); }
+  .console-output .log-success { color: var(--success); }
+  .console-output .log-warning { color: var(--warning); }
+  .console-output .log-info { color: #60a5fa; }
+
+  /* Metrics bar (bottom) */
+  .metrics-bar {
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border);
+    padding: 8px 24px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-size: 12px;
+    overflow-x: auto;
+    flex-shrink: 0;
+  }
+
+  .metric-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .metric-label { color: var(--text-muted); }
+  .metric-value { color: var(--text-primary); font-weight: 600; font-family: var(--font-mono); }
+
+  /* Form elements */
+  .form-section {
+    margin-bottom: 20px;
+  }
+
+  .form-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent);
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .form-group {
+    margin-bottom: 10px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .form-row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  input[type="text"], input[type="number"], select {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: var(--font-mono);
+    transition: border-color 0.2s;
+    outline: none;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+  }
+
+  input[type="checkbox"] {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-input);
+    cursor: pointer;
+    vertical-align: middle;
+    position: relative;
+  }
+
+  input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: -1px;
+    left: 2px;
+    font-size: 12px;
+    color: white;
+    font-weight: bold;
+  }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  textarea {
+    width: 100%;
+    padding: 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: var(--font-mono);
+    resize: vertical;
+    outline: none;
+  }
+
+  textarea:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 2px var(--accent-glow);
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: var(--font-sans);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+
+  .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 12px var(--accent-glow); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-danger {
+    background: var(--error-bg);
+    color: var(--error);
+    border: 1px solid rgba(248, 113, 113, 0.3);
+  }
+
+  .btn-danger:hover { background: rgba(248, 113, 113, 0.2); }
+  .btn-danger:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+  .btn-run {
+    width: 100%;
+    padding: 12px;
+    font-size: 14px;
+    margin-top: 8px;
+    justify-content: center;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .btn-group .btn { flex: 1; justify-content: center; }
+
+  /* Quick translate */
+  .translate-box {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin-top: 12px;
+  }
+
+  .translate-result {
+    min-height: 50px;
+    padding: 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--success);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    margin-top: 8px;
+  }
+
+  /* Progress bar for console */
+  .progress-bar {
+    height: 3px;
+    background: var(--bg-tertiary);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .progress-bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+    width: 0%;
+    transition: width 0.3s;
+  }
+
+  .progress-bar.indeterminate .fill {
+    width: 30%;
+    animation: indeterminate 1.5s ease-in-out infinite;
+  }
+
+  @keyframes indeterminate {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px) {
+    .main-area { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+    .tabs-panel { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">𒀭 MARDUK <span>Mamba-Augmented Reconstruction & Decoding of Unknown Kuneiform</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="hw-banner" id="hw-banner">
+        <span class="dot" id="hw-dot"></span>
+        <span id="hw-text">Detecting hardware…</span>
+      </div>
+      <div class="status-indicator idle" id="status-indicator">
+        <span id="status-text">Idle</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <div class="main-area">
+    <!-- Left: Tabs -->
+    <div class="tabs-panel">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="scores">Scores</button>
+        <button class="tab-btn" data-tab="data">Data Prep</button>
+        <button class="tab-btn" data-tab="train">Train</button>
+        <button class="tab-btn" data-tab="inference">Inference</button>
+        <button class="tab-btn" data-tab="eval">Evaluate</button>
+      </div>
+      <div class="tab-content">
+
+        <!-- SCORES TAB -->
+        <div class="tab-pane active" id="tab-scores">
+          <div class="form-section">
+            <div class="form-section-title">Competition Scores — Auto-updating</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+              <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Best Score</div>
+                <div id="score-best" style="font-size:36px;font-weight:700;color:var(--gold);font-family:var(--font-mono);margin:4px 0;">—</div>
+                <div id="score-best-run" style="font-size:11px;color:var(--text-muted);">—</div>
+              </div>
+              <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Best BLEU</div>
+                <div id="score-bleu" style="font-size:36px;font-weight:700;color:var(--accent);font-family:var(--font-mono);margin:4px 0;">—</div>
+                <div style="font-size:11px;color:var(--text-muted);">SacreBLEU</div>
+              </div>
+              <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Best chrF++</div>
+                <div id="score-chrf" style="font-size:36px;font-weight:700;color:var(--accent);font-family:var(--font-mono);margin:4px 0;">—</div>
+                <div style="font-size:11px;color:var(--text-muted);">chrF++ score</div>
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Leaderboard Context</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+              <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Leader</div>
+                <div style="font-size:22px;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);">40.6</div>
+              </div>
+              <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Prize Floor</div>
+                <div style="font-size:22px;font-weight:700;color:var(--success);font-family:var(--font-mono);">37.7</div>
+              </div>
+              <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Median</div>
+                <div style="font-size:22px;font-weight:700;color:var(--text-secondary);font-family:var(--font-mono);">32.5</div>
+              </div>
+              <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
+                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Gap to Prize</div>
+                <div id="score-gap" style="font-size:22px;font-weight:700;color:var(--error);font-family:var(--font-mono);">—</div>
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Live Training</div>
+            <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:14px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">
+                <div><span style="font-size:11px;color:var(--text-muted);">Epoch</span><div id="live-epoch" style="font-size:18px;font-weight:600;font-family:var(--font-mono);">—</div></div>
+                <div><span style="font-size:11px;color:var(--text-muted);">Loss</span><div id="live-loss" style="font-size:18px;font-weight:600;font-family:var(--font-mono);">—</div></div>
+                <div><span style="font-size:11px;color:var(--text-muted);">Eval Score</span><div id="live-eval-score" style="font-size:18px;font-weight:600;font-family:var(--font-mono);color:var(--gold);">—</div></div>
+                <div><span style="font-size:11px;color:var(--text-muted);">LR</span><div id="live-lr" style="font-size:18px;font-weight:600;font-family:var(--font-mono);">—</div></div>
+              </div>
+              <div id="live-status" style="margin-top:8px;font-size:12px;color:var(--text-muted);">No training in progress</div>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">All Runs</div>
+            <div id="runs-table" style="font-size:13px;">Loading…</div>
+          </div>
+        </div>
+
+        <!-- DATA TAB -->
+        <div class="tab-pane" id="tab-data">
+          <div class="form-section">
+            <div class="form-section-title">Config Files</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Data Config</label>
+                <input type="text" id="data-data-cfg" value="configs/data/raw.yaml">
+              </div>
+              <div class="form-group">
+                <label>View Config</label>
+                <input type="text" id="data-view-cfg" value="configs/data/dual_view.yaml">
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-run" onclick="runTask('prepare')">▶ Prepare Data</button>
+          <button class="btn btn-primary btn-run" onclick="runTask('expand_data')" style="margin-top:6px;background:var(--accent-hover);">▶ Expand Data (Augment)</button>
+        </div>
+
+        <!-- TRAIN TAB -->
+        <div class="tab-pane" id="tab-train">
+          <div class="form-section">
+            <div class="form-section-title">Config Files</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Data Config</label>
+                <input type="text" id="train-data-cfg" value="configs/data/raw.yaml">
+              </div>
+              <div class="form-group">
+                <label>View Config</label>
+                <input type="text" id="train-view-cfg" value="configs/data/dual_view.yaml">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Model Config</label>
+                <input type="text" id="train-model-cfg" value="configs/model/mamba_enc_txd_dec_base.yaml">
+              </div>
+              <div class="form-group">
+                <label>Train Config</label>
+                <input type="text" id="train-train-cfg" value="configs/train/b200.yaml">
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Runtime</div>
+            <div class="form-row-3">
+              <div class="form-group">
+                <label>Device</label>
+                <select id="train-device">
+                  <option value="cuda" selected>CUDA (GPU)</option>
+                  <option value="cpu">CPU</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label style="visibility:hidden">_</label>
+                <label class="checkbox-row">
+                  <input type="checkbox" id="train-bf16" checked> Use bf16 precision
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-primary btn-run" onclick="runTask('train')">▶ Hybrid Train</button>
+            <button class="btn btn-primary btn-run" onclick="runTask('train_byt5')" style="background:#6d28d9;">▶ ByT5 Train</button>
+            <button class="btn btn-primary btn-run" onclick="runTask('train_mamba_byt5')" style="background:var(--gold);color:#000;">▶ Mamba-ByT5 Train</button>
+            <button class="btn btn-danger" onclick="killProcess()" id="kill-btn" disabled>■ Stop</button>
+          </div>
+        </div>
+
+        <!-- INFERENCE TAB -->
+        <div class="tab-pane" id="tab-inference">
+          <div class="form-section">
+            <div class="form-section-title">Model & I/O</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Checkpoint (.pt)</label>
+                <input type="text" id="inf-checkpoint" value="outputs/runs/hybrid_b200/best.pt">
+              </div>
+              <div class="form-group">
+                <label>Output CSV</label>
+                <input type="text" id="inf-output" value="submission.csv">
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Decoding</div>
+            <div class="form-row-3">
+              <div class="form-group">
+                <label>Num Beams</label>
+                <input type="number" id="inf-beams" value="5" min="1" max="64">
+              </div>
+              <div class="form-group">
+                <label>Batch Size</label>
+                <input type="number" id="inf-batch" value="8" min="1" max="512">
+              </div>
+              <div class="form-group">
+                <label>Device</label>
+                <select id="inf-device">
+                  <option value="cuda" selected>CUDA</option>
+                  <option value="cpu">CPU</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Config Files</div>
+            <div class="form-row-3">
+              <div class="form-group">
+                <label>Data Config</label>
+                <input type="text" id="inf-data-cfg" value="configs/data/raw.yaml">
+              </div>
+              <div class="form-group">
+                <label>View Config</label>
+                <input type="text" id="inf-view-cfg" value="configs/data/dual_view.yaml">
+              </div>
+              <div class="form-group">
+                <label>Model Config</label>
+                <input type="text" id="inf-model-cfg" value="configs/model/mamba_enc_txd_dec_base.yaml">
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-run" onclick="runTask('inference')">▶ Generate Submission</button>
+
+          <div class="translate-box">
+            <div class="form-section-title" style="border:none;padding:0;margin-bottom:8px;">Quick Translate</div>
+            <div class="form-group">
+              <label>Akkadian Transliteration</label>
+              <textarea id="quick-input" rows="2" placeholder="Paste Akkadian transliteration here…"></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="quickTranslate()" style="margin-top:8px;">Translate</button>
+            <div class="translate-result" id="quick-output">Translation will appear here…</div>
+          </div>
+        </div>
+
+        <!-- EVAL TAB -->
+        <div class="tab-pane" id="tab-eval">
+          <div class="form-section">
+            <div class="form-section-title">Evaluation</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Runs Directory</label>
+                <input type="text" id="eval-runs-dir" value="outputs/runs">
+              </div>
+              <div class="form-group">
+                <label>Output Report</label>
+                <input type="text" id="eval-output" value="outputs/reports/summary.json">
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-run" onclick="runTask('evaluate')">▶ Run Evaluation</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Right: Console -->
+    <div class="console-panel">
+      <div class="console-header">
+        <h3>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          Console
+        </h3>
+        <div class="console-actions">
+          <button class="btn btn-ghost" onclick="runTask('pipeline')">▶ Full Pipeline</button>
+          <button class="btn btn-ghost" onclick="clearConsole()">Clear</button>
+        </div>
+      </div>
+      <div class="progress-bar" id="progress-bar"><div class="fill"></div></div>
+      <div class="console-output" id="console-output"></div>
+    </div>
+  </div>
+
+  <!-- Metrics bar -->
+  <div class="metrics-bar" id="metrics-bar">
+    <div class="metric-item"><span class="metric-label">BLEU</span> <span class="metric-value" id="m-bleu">—</span></div>
+    <div class="metric-item"><span class="metric-label">chrF++</span> <span class="metric-value" id="m-chrf">—</span></div>
+    <div class="metric-item"><span class="metric-label">Competition</span> <span class="metric-value" id="m-comp">—</span></div>
+    <div class="metric-item"><span class="metric-label">Name F1</span> <span class="metric-value" id="m-name">—</span></div>
+    <div class="metric-item"><span class="metric-label">Number Match</span> <span class="metric-value" id="m-number">—</span></div>
+    <div class="metric-item"><span class="metric-label">Length Ratio</span> <span class="metric-value" id="m-lenratio">—</span></div>
+    <div class="metric-item"><span class="metric-label">Hallucination</span> <span class="metric-value" id="m-halluc">—</span></div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let ws = null;
+let isRunning = false;
+
+// ── WebSocket ──
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    handleMessage(msg);
+  };
+
+  ws.onclose = () => {
+    setTimeout(connectWS, 2000);
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+function handleMessage(msg) {
+  const con = document.getElementById('console-output');
+
+  switch (msg.type) {
+    case 'log':
+      appendLog(msg.text);
+      updateLiveMetrics(parseMetricsFromLog(msg.text));
+      break;
+    case 'started':
+      setRunning(true, msg.task);
+      appendLog(`\n━━━ ${msg.task.toUpperCase()} started ━━━\n`, 'log-info');
+      break;
+    case 'finished':
+      setRunning(false);
+      const cls = msg.code === 0 ? 'log-success' : 'log-error';
+      const sym = msg.code === 0 ? '✓' : '✗';
+      appendLog(`\n${sym} ${msg.task} exited with code ${msg.code}\n`, cls);
+      fetchMetrics();
+      break;
+    case 'killed':
+      setRunning(false);
+      appendLog('\n⚠ Process killed by user\n', 'log-warning');
+      break;
+    case 'error':
+      appendLog(`\n✗ Error: ${msg.text}\n`, 'log-error');
+      break;
+    case 'status':
+      setRunning(msg.running, msg.task);
+      break;
+  }
+}
+
+function appendLog(text, cls) {
+  const con = document.getElementById('console-output');
+  if (cls) {
+    const span = document.createElement('span');
+    span.className = cls;
+    span.textContent = text;
+    con.appendChild(span);
+  } else {
+    con.appendChild(document.createTextNode(text));
+  }
+  con.scrollTop = con.scrollHeight;
+}
+
+function clearConsole() {
+  document.getElementById('console-output').innerHTML = '';
+}
+
+// ── API calls ──
+async function runTask(task) {
+  if (isRunning) {
+    appendLog('\n⚠ A process is already running\n', 'log-warning');
+    return;
+  }
+
+  const args = buildArgs(task);
+  const resp = await fetch('/api/run', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({task, args}),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json();
+    appendLog(`\n✗ ${err.error}\n`, 'log-error');
+  }
+}
+
+function buildArgs(task) {
+  switch (task) {
+    case 'prepare':
+      return {
+        data_config: document.getElementById('data-data-cfg').value,
+        view_config: document.getElementById('data-view-cfg').value,
+      };
+    case 'train':
+      return {
+        data_config: document.getElementById('train-data-cfg').value,
+        view_config: document.getElementById('train-view-cfg').value,
+        model_config: document.getElementById('train-model-cfg').value,
+        train_config: document.getElementById('train-train-cfg').value,
+        device: document.getElementById('train-device').value,
+        bf16: document.getElementById('train-bf16').checked,
+      };
+    case 'inference':
+      return {
+        data_config: document.getElementById('inf-data-cfg').value,
+        view_config: document.getElementById('inf-view-cfg').value,
+        model_config: document.getElementById('inf-model-cfg').value,
+        checkpoint: document.getElementById('inf-checkpoint').value,
+        output: document.getElementById('inf-output').value,
+        num_beams: parseInt(document.getElementById('inf-beams').value),
+        batch_size: parseInt(document.getElementById('inf-batch').value),
+        device: document.getElementById('inf-device').value,
+      };
+    case 'evaluate':
+      return {
+        runs_dir: document.getElementById('eval-runs-dir').value,
+        output: document.getElementById('eval-output').value,
+      };
+    default:
+      return {};
+  }
+}
+
+async function killProcess() {
+  await fetch('/api/kill', {method: 'POST'});
+}
+
+async function quickTranslate() {
+  const out = document.getElementById('quick-output');
+  out.textContent = 'Translating… (this uses the inference pipeline)';
+  out.style.color = 'var(--text-muted)';
+  // For now, just inform — real quick translate would need a loaded model endpoint
+  out.textContent = 'Quick translate requires a running model server. Use the Inference tab to generate full submissions.';
+  out.style.color = 'var(--warning)';
+}
+
+function setRunning(running, task) {
+  isRunning = running;
+  const indicator = document.getElementById('status-indicator');
+  const statusText = document.getElementById('status-text');
+  const killBtn = document.getElementById('kill-btn');
+  const progress = document.getElementById('progress-bar');
+
+  if (running) {
+    indicator.className = 'status-indicator running';
+    statusText.innerHTML = '<span class="pulse"></span> Running: ' + (task || '');
+    killBtn.disabled = false;
+    progress.classList.add('indeterminate');
+  } else {
+    indicator.className = 'status-indicator idle';
+    statusText.textContent = 'Idle';
+    killBtn.disabled = true;
+    progress.classList.remove('indeterminate');
+  }
+
+  // Disable/enable all run buttons
+  document.querySelectorAll('.btn-primary').forEach(btn => {
+    if (!btn.id || btn.id !== 'kill-btn') {
+      btn.disabled = running;
+    }
+  });
+}
+
+// ── Hardware ──
+async function fetchHardware() {
+  try {
+    const resp = await fetch('/api/hardware');
+    const hw = await resp.json();
+    const dot = document.getElementById('hw-dot');
+    const text = document.getElementById('hw-text');
+
+    if (hw.cuda_available && hw.gpus.length > 0) {
+      dot.className = 'dot green';
+      const parts = hw.gpus.map(g => `${g.name} (${g.mem_gb} GB)`);
+      text.textContent = `PyTorch ${hw.torch_version} | ${parts.join(', ')} | CUDA ${hw.cuda_version}${hw.bf16 ? ' | bf16 ✓' : ''}`;
+    } else {
+      dot.className = 'dot red';
+      text.textContent = `PyTorch ${hw.torch_version} | NO GPU — CPU only`;
+    }
+  } catch {
+    document.getElementById('hw-text').textContent = 'Could not detect hardware';
+  }
+}
+
+// ── Metrics ──
+const _METRIC_RE = /['"]?(eval_[a-z_]+|loss|learning_rate|epoch|grad_norm)['"]?\s*:\s*([\d.eE+-]+)/g;
+
+function parseMetricsFromLog(text) {
+  const parsed = {};
+  let m;
+  _METRIC_RE.lastIndex = 0;
+  while ((m = _METRIC_RE.exec(text)) !== null) {
+    parsed[m[1]] = parseFloat(m[2]);
+  }
+  return Object.keys(parsed).length > 0 ? parsed : null;
+}
+
+function updateLiveMetrics(parsed) {
+  if (!parsed) return;
+  const hasEval = Object.keys(parsed).some(k => k.startsWith('eval_'));
+  if (hasEval) {
+    const cs = parsed.eval_competition_score;
+    if (cs !== undefined) {
+      document.getElementById('live-eval-score').textContent = cs.toFixed(2);
+    }
+    if (parsed.eval_sacrebleu !== undefined) {
+      document.getElementById('m-bleu').textContent = parsed.eval_sacrebleu.toFixed(2);
+    }
+    if (parsed.eval_chrf !== undefined) {
+      document.getElementById('m-chrf').textContent = parsed.eval_chrf.toFixed(2);
+    }
+    if (cs !== undefined) {
+      document.getElementById('m-comp').textContent = cs.toFixed(2);
+    }
+  } else {
+    if (parsed.loss !== undefined) {
+      document.getElementById('live-loss').textContent = parsed.loss.toFixed(4);
+    }
+    if (parsed.epoch !== undefined) {
+      document.getElementById('live-epoch').textContent = parsed.epoch.toFixed(1);
+    }
+    if (parsed.learning_rate !== undefined) {
+      document.getElementById('live-lr').textContent = parsed.learning_rate.toExponential(1);
+    }
+  }
+}
+
+async function fetchMetrics() {
+  try {
+    const resp = await fetch('/api/metrics');
+    const data = await resp.json();
+
+    // Update best scores
+    const best = data.best || {};
+    const bleu = best.sacrebleu ?? best.eval_sacrebleu;
+    const chrf = best.chrf ?? best.eval_chrf;
+    const comp = best.competition_score ?? best.eval_competition_score;
+
+    if (comp !== undefined) {
+      document.getElementById('score-best').textContent = comp.toFixed(2);
+      document.getElementById('m-comp').textContent = comp.toFixed(2);
+      const gap = 37.7 - comp;
+      const gapEl = document.getElementById('score-gap');
+      gapEl.textContent = (gap > 0 ? '-' : '+') + Math.abs(gap).toFixed(1);
+      gapEl.style.color = gap > 0 ? 'var(--error)' : 'var(--success)';
+    }
+    if (bleu !== undefined) {
+      document.getElementById('score-bleu').textContent = bleu.toFixed(2);
+      document.getElementById('m-bleu').textContent = bleu.toFixed(2);
+    }
+    if (chrf !== undefined) {
+      document.getElementById('score-chrf').textContent = chrf.toFixed(2);
+      document.getElementById('m-chrf').textContent = chrf.toFixed(2);
+    }
+    if (best._run) {
+      document.getElementById('score-best-run').textContent = best._run;
+    }
+
+    // Additional metrics
+    const nameF1 = best.name_f1 ?? best.eval_name_f1;
+    const numMatch = best.number_exact_match ?? best.eval_number_exact_match;
+    const lenRatio = best.length_ratio ?? best.eval_length_ratio;
+    const halluc = best.damage_hallucination_proxy ?? best.eval_damage_hallucination_proxy;
+    if (nameF1 !== undefined) document.getElementById('m-name').textContent = nameF1.toFixed(4);
+    if (numMatch !== undefined) document.getElementById('m-number').textContent = numMatch.toFixed(4);
+    if (lenRatio !== undefined) document.getElementById('m-lenratio').textContent = lenRatio.toFixed(3);
+    if (halluc !== undefined) document.getElementById('m-halluc').textContent = halluc.toFixed(4);
+
+    // Live training status
+    const live = data.live || {};
+    if (live.is_training) {
+      document.getElementById('live-status').innerHTML =
+        '<span style=\"color:var(--success)\">Training in progress: ' + live.current_task + '</span>';
+      if (live.eval.eval_competition_score) {
+        document.getElementById('live-eval-score').textContent = live.eval.eval_competition_score.toFixed(2);
+      }
+      if (live.training.loss) {
+        document.getElementById('live-loss').textContent = live.training.loss.toFixed(4);
+      }
+      if (live.training.epoch) {
+        document.getElementById('live-epoch').textContent = live.training.epoch.toFixed(1);
+      }
+      if (live.training.learning_rate) {
+        document.getElementById('live-lr').textContent = live.training.learning_rate.toExponential(1);
+      }
+    } else {
+      document.getElementById('live-status').textContent = 'No training in progress';
+    }
+
+    // All runs table
+    const runs = data.runs || {};
+    const runNames = Object.keys(runs);
+    if (runNames.length > 0) {
+      let html = '<table style=\"width:100%;border-collapse:collapse;font-size:12px;\">';
+      html += '<tr><th style=\"text-align:left;padding:4px 8px;color:var(--text-muted);border-bottom:1px solid var(--border);\">Run</th>';
+      html += '<th style=\"text-align:right;padding:4px 8px;color:var(--text-muted);border-bottom:1px solid var(--border);\">BLEU</th>';
+      html += '<th style=\"text-align:right;padding:4px 8px;color:var(--text-muted);border-bottom:1px solid var(--border);\">chrF++</th>';
+      html += '<th style=\"text-align:right;padding:4px 8px;color:var(--text-muted);border-bottom:1px solid var(--border);\">Score</th></tr>';
+      runNames.forEach(name => {
+        const m = runs[name];
+        const s = m.competition_score ?? m.eval_competition_score ?? 0;
+        const b = m.sacrebleu ?? m.eval_sacrebleu ?? 0;
+        const c = m.chrf ?? m.eval_chrf ?? 0;
+        const isBest = name === best._run;
+        const style = isBest ? 'color:var(--gold);font-weight:600;' : '';
+        html += '<tr><td style=\"padding:4px 8px;border-bottom:1px solid #21262d;' + style + '\">' + name + (isBest ? ' \u2605' : '') + '</td>';
+        html += '<td style=\"text-align:right;padding:4px 8px;border-bottom:1px solid #21262d;font-family:var(--font-mono);' + style + '\">' + b.toFixed(2) + '</td>';
+        html += '<td style=\"text-align:right;padding:4px 8px;border-bottom:1px solid #21262d;font-family:var(--font-mono);' + style + '\">' + c.toFixed(2) + '</td>';
+        html += '<td style=\"text-align:right;padding:4px 8px;border-bottom:1px solid #21262d;font-family:var(--font-mono);' + style + '\">' + s.toFixed(2) + '</td></tr>';
+      });
+      html += '</table>';
+      document.getElementById('runs-table').innerHTML = html;
+    } else {
+      document.getElementById('runs-table').textContent = 'No completed runs yet';
+    }
+  } catch {}
+}
+
+// ── Tabs ──
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Init ──
+connectWS();
+fetchHardware();
+fetchMetrics();
+setInterval(fetchMetrics, 10000);  // Poll every 10s for live updates
+</script>
+</body>
+</html>

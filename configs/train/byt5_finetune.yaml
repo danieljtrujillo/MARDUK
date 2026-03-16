@@ -1,0 +1,42 @@
+# Training config for ByT5-base fine-tuning on NVIDIA B200 (192 GB HBM3e)
+run_name: byt5_base_finetune
+seed: 17
+output_dir: outputs/runs/byt5_base
+
+# B200 can handle large batches; ByT5-base ~580M params in bf16 ~1.2GB
+# Byte-level sequences are longer than token-level, so be conservative
+per_device_train_batch_size: 16
+per_device_eval_batch_size: 32
+gradient_accumulation_steps: 4     # effective batch = 64
+
+num_train_epochs: 10
+learning_rate: 3.0e-4
+weight_decay: 0.01
+warmup_ratio: 0.06
+lr_scheduler_type: cosine
+
+# Mixed precision
+bf16: true
+
+# Gradient clipping
+max_grad_norm: 1.0
+
+# Eval & save
+eval_strategy: steps
+eval_steps: 200
+save_strategy: steps
+save_steps: 200
+save_total_limit: 3
+load_best_model_at_end: true
+metric_for_best_model: competition_score
+greater_is_better: true
+
+# Generation during eval
+predict_with_generate: true
+
+# Logging
+logging_steps: 20
+report_to: none
+
+# Data
+fold: 0

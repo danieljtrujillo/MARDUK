@@ -216,6 +216,7 @@ def main() -> None:
 
             if global_step % train_cfg["eval_every"] == 0:
                 metrics, preds, refs = evaluate_model(model, val_loader, target_tokenizer, device)
+                model.train()  # restore training mode after eval
                 logger.info("step=%s metrics=%s", global_step, metrics)
                 score = metrics.get("competition_score", metrics["sacrebleu"])
                 if score > best_metric:

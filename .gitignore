@@ -68,6 +68,10 @@ logs/
 # ── Deploy config (local user settings) ──
 .deploy_config
 
+# ── Temp exploration scripts ──
+_*.py
+_*.json
+
 # ── Secrets / keys (never commit) ──
 fff
 fff.pub

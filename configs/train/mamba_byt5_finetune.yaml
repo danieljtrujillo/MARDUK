@@ -1,0 +1,50 @@
+# Phase 2 training config: Mamba-ByT5 on expanded data (B200)
+run_name: mamba_byt5_finetune
+seed: 17
+output_dir: outputs/runs/mamba_byt5
+
+# Two-stage training:
+#   Stage 1: Adapter warmup — freeze ByT5, train only Mamba layers
+#   Stage 2: Full fine-tuning — unfreeze all, lower LR
+freeze_byt5_stage1: true
+stage1_epochs: 3
+stage1_lr: 1.0e-3
+
+# Stage 2 config
+stage2_epochs: 10
+stage2_lr: 5.0e-5    # Lower LR for fine-tuning (ByT5 already pretrained)
+num_train_epochs: 10  # fallback
+learning_rate: 5.0e-5
+
+# Batching — slightly smaller to accommodate adapter memory
+per_device_train_batch_size: 12
+per_device_eval_batch_size: 24
+gradient_accumulation_steps: 5     # effective batch = 60
+
+weight_decay: 0.01
+warmup_ratio: 0.06
+lr_scheduler_type: cosine
+max_grad_norm: 1.0
+
+# Mixed precision
+bf16: true
+
+# Eval & save
+eval_strategy: steps
+eval_steps: 200
+save_strategy: steps
+save_steps: 200
+save_total_limit: 3
+load_best_model_at_end: true
+metric_for_best_model: competition_score
+greater_is_better: true
+
+# Generation during eval
+predict_with_generate: true
+
+# Logging
+logging_steps: 10
+report_to: none
+
+# Data
+fold: 0
