@@ -240,16 +240,16 @@
 </div>
 
 <script>
-// Leaderboard distribution approximation (score → rank) from 2,951 teams
+// Leaderboard distribution approximation (score → rank) from 3,025 teams
 // Based on actual Kaggle leaderboard data
 const LB_POINTS = [
-  [40.6, 1], [39.4, 5], [37.7, 20], [35.7, 295],
-  [33.8, 738], [32.5, 1475], [23.3, 2213], [7.9, 2656], [0, 2951]
+  [40.6, 1], [39.6, 6], [38.4, 30], [36.4, 302],
+  [33.8, 756], [32.5, 1512], [23.3, 2267], [7.9, 2721], [0, 3025]
 ];
 
 function estimateRank(score) {
   if (score >= LB_POINTS[0][0]) return 1;
-  if (score <= 0) return 2951;
+  if (score <= 0) return 3025;
   for (let i = 0; i < LB_POINTS.length - 1; i++) {
     const [s1, r1] = LB_POINTS[i];
     const [s2, r2] = LB_POINTS[i + 1];
@@ -258,7 +258,7 @@ function estimateRank(score) {
       return Math.round(r1 + t * (r2 - r1));
     }
   }
-  return 2951;
+  return 3025;
 }
 
 function estimateTier(rank) {
@@ -306,8 +306,8 @@ async function fetchFromPod() {
       document.getElementById('kpi-run').textContent = 'Best: ' + runName;
 
       const rank = estimateRank(comp);
-      const pct = ((2951 - rank) / 2951 * 100).toFixed(1);
-      document.getElementById('kpi-rank').innerHTML = '#' + rank.toLocaleString() + ' <small>/ 2,951</small>';
+      const pct = ((3025 - rank) / 3025 * 100).toFixed(1);
+      document.getElementById('kpi-rank').innerHTML = '#' + rank.toLocaleString() + ' <small>/ 3,025</small>';
       document.getElementById('kpi-rank-bar').style.width = pct + '%';
       if (rank <= 20) {
         document.getElementById('kpi-rank-bar').style.background = 'var(--green)';

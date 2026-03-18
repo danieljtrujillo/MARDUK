@@ -685,6 +685,139 @@ class EvalTab(QWidget):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Deploy Tab — Upload to HuggingFace & push to Kaggle
+# ═══════════════════════════════════════════════════════════════════════════
+class DeployTab(QWidget):
+    run_requested = pyqtSignal(list)
+
+    def __init__(self):
+        super().__init__()
+        main = QVBoxLayout(self)
+
+        # ── RunPod → HuggingFace upload ──
+        hg = _group("Upload Model: RunPod → HuggingFace")
+        hf = QFormLayout()
+
+        self.pod_id = QLineEdit("")
+        self.pod_id.setPlaceholderText("e.g. x9rgscdavvuj97")
+        hf.addRow("RunPod Pod ID:", self.pod_id)
+
+        self.runpod_key = QLineEdit("")
+        self.runpod_key.setPlaceholderText("rpa_...")
+        self.runpod_key.setEchoMode(QLineEdit.Password)
+        hf.addRow("RunPod API Key:", self.runpod_key)
+
+        self.hf_token = QLineEdit("")
+        self.hf_token.setPlaceholderText("hf_...")
+        self.hf_token.setEchoMode(QLineEdit.Password)
+        hf.addRow("HuggingFace Token:", self.hf_token)
+
+        self.hf_repo = QLineEdit("danieljtrujillo/marduk-byt5-akkadian2english")
+        hf.addRow("HF Repo:", self.hf_repo)
+
+        self.model_dir = QLineEdit("/workspace/outputs/runs/byt5_plain_v1/best")
+        hf.addRow("Model Dir (on pod):", self.model_dir)
+
+        hg.setLayout(hf)
+        main.addWidget(hg)
+
+        self.upload_btn = QPushButton("  Upload to HuggingFace")
+        self.upload_btn.setMinimumHeight(38)
+        self.upload_btn.setStyleSheet("font-weight: bold; font-size: 13px; background-color: #6f42c1;")
+        self.upload_btn.clicked.connect(self._on_upload)
+        main.addWidget(self.upload_btn)
+
+        # ── Kaggle push ──
+        kg = _group("Push to Kaggle")
+        kf = QVBoxLayout()
+
+        self.kaggle_dl_btn = QPushButton("  Re-run Model Download Kernel")
+        self.kaggle_dl_btn.setToolTip("Pushes marduk-model-download to trigger a fresh HF download on Kaggle")
+        self.kaggle_dl_btn.clicked.connect(self._on_kaggle_rerun_download)
+        kf.addWidget(self.kaggle_dl_btn)
+
+        self.kaggle_push_btn = QPushButton("  Push Main Notebook (v11+)")
+        self.kaggle_push_btn.setToolTip("Pushes kaggle_notebook.py as a new version")
+        self.kaggle_push_btn.clicked.connect(self._on_kaggle_push)
+        kf.addWidget(self.kaggle_push_btn)
+
+        self.kaggle_status_btn = QPushButton("  Check Kaggle Status")
+        self.kaggle_status_btn.clicked.connect(self._on_kaggle_status)
+        kf.addWidget(self.kaggle_status_btn)
+
+        kg.setLayout(kf)
+        main.addWidget(kg)
+
+        # ── Run button (needed by MardukGUI._set_running) ──
+        self.run_btn = QPushButton()
+        self.run_btn.setVisible(False)
+        main.addWidget(self.run_btn)
+
+        main.addStretch()
+
+    def _on_upload(self):
+        pod_id = self.pod_id.text().strip()
+        api_key = self.runpod_key.text().strip()
+        hf_token = self.hf_token.text().strip()
+        hf_repo = self.hf_repo.text().strip()
+        model_dir = self.model_dir.text().strip()
+
+        if not all([pod_id, api_key, hf_token, hf_repo, model_dir]):
+            QMessageBox.warning(self, "Missing fields", "Fill in all RunPod/HF fields first.")
+            return
+
+        cmd = [
+            PYTHON, "upload_to_hf.py",
+        ]
+        env = {
+            **os.environ,
+            "RUNPOD_POD_ID": pod_id,
+            "RUNPOD_API_KEY": api_key,
+            "HF_TOKEN": hf_token,
+            "HF_REPO": hf_repo,
+            "MODEL_DIR": model_dir,
+        }
+        # Emit run_requested expects just cmd; we handle env via a wrapper
+        self.run_requested.emit(cmd)
+
+    def _on_kaggle_rerun_download(self):
+        cmd = [PYTHON, "-c",
+            "import requests, json; "
+            "h = {'Authorization': 'Bearer KGAT_09ede2e2adc18bae4b907b5fc15b516e', 'Content-Type': 'application/json'}; "
+            "src = open('_push_kaggle_download.py','r').read() if __import__('os').path.exists('_push_kaggle_download.py') else "
+            "'# re-trigger\\nimport os\\nfrom huggingface_hub import snapshot_download\\nmodel_id = \"danieljtrujillo/marduk-byt5-akkadian2english\"\\nprint(f\"Downloading {model_id}...\")\\nlocal_dir = snapshot_download(model_id, local_dir=\"/kaggle/working/model\")\\nfor f in sorted(os.listdir(local_dir)):\\n    size = os.path.getsize(os.path.join(local_dir, f)) / 1e6\\n    print(f\"  {f}: {size:.1f} MB\")\\nprint(\"Done!\")'; "
+            "payload = {'id': 112443101, 'slug': 'theskateborg/marduk-model-download', 'newTitle': 'marduk-model-download', "
+            "'text': src, 'language': 'python', 'kernelType': 'script', 'isPrivate': 'true', "
+            "'enableGpu': 'false', 'enableTpu': 'false', 'enableInternet': 'true'}; "
+            "r = requests.post('https://www.kaggle.com/api/v1/kernels/push', headers=h, json=payload); "
+            "print(f'Status: {r.status_code}'); print(r.text[:500])"
+        ]
+        self.run_requested.emit(cmd)
+
+    def _on_kaggle_push(self):
+        cmd = [PYTHON, "_push_kaggle_v7.py"]
+        self.run_requested.emit(cmd)
+
+    def _on_kaggle_status(self):
+        cmd = [PYTHON, "-c",
+            "import requests, json; "
+            "h = {'Authorization': 'Bearer KGAT_09ede2e2adc18bae4b907b5fc15b516e'}; "
+            "# Model download kernel status\n"
+            "r1 = requests.get('https://www.kaggle.com/api/v1/kernels/status?userName=theskateborg&kernelSlug=marduk-model-download', headers=h); "
+            "d1 = r1.json(); print(f'Model Download: {d1.get(\"status\",\"?\")}'  + (f' - {d1[\"failureMessage\"]}' if d1.get('failureMessage') else '')); "
+            "# Main notebook status\n"
+            "r2 = requests.get('https://www.kaggle.com/api/v1/kernels/status?userName=theskateborg&kernelSlug=marduk-akkadian-translation', headers=h); "
+            "d2 = r2.json(); print(f'Main Notebook:  {d2.get(\"status\",\"?\")}'  + (f' - {d2[\"failureMessage\"]}' if d2.get('failureMessage') else '')); "
+            "# Latest submissions\n"
+            "r3 = requests.get('https://www.kaggle.com/api/v1/competitions/submissions/list/deep-past-initiative-machine-translation', headers=h); "
+            "subs = r3.json()[:5]; "
+            "print('\\nRecent submissions:'); "
+            "[print(f'  {s[\"date\"]}  score={s.get(\"publicScore\",\"?\")}  status={s.get(\"status\",\"?\")}') for s in subs]"
+        ]
+        self.run_requested.emit(cmd)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Main Window
 # ═══════════════════════════════════════════════════════════════════════════
 class MardukGUI(QMainWindow):
@@ -746,12 +879,14 @@ class MardukGUI(QMainWindow):
         self.train_tab = TrainTab()
         self.inference_tab = InferenceTab()
         self.eval_tab = EvalTab()
+        self.deploy_tab = DeployTab()
 
         for tab, title in [
             (self.data_tab, " Data Prep"),
             (self.train_tab, " Train"),
             (self.inference_tab, " Inference"),
             (self.eval_tab, " Evaluate"),
+            (self.deploy_tab, " Deploy"),
         ]:
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
@@ -812,6 +947,7 @@ class MardukGUI(QMainWindow):
         self.train_tab.stop_btn.clicked.connect(self._kill_worker)
         self.inference_tab.run_requested.connect(self._run_command)
         self.eval_tab.run_requested.connect(self._run_command)
+        self.deploy_tab.run_requested.connect(self._run_command)
 
         self._apply_dark_theme()
 
@@ -846,7 +982,7 @@ class MardukGUI(QMainWindow):
         self.progress.setVisible(running)
         self.kill_btn.setEnabled(running)
         self.train_tab.stop_btn.setEnabled(running)
-        for tab in (self.data_tab, self.train_tab, self.inference_tab, self.eval_tab):
+        for tab in (self.data_tab, self.train_tab, self.inference_tab, self.eval_tab, self.deploy_tab):
             tab.run_btn.setEnabled(not running)
 
     # ── Dark theme ──

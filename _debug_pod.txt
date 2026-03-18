@@ -1,0 +1,13 @@
+/app/marduk/web_dashboard.py
+/workspace/repo/web_dashboard.py
+---
+/opt/nvidia/nsight-compute/2025.3.0/host/target-linux-x64/python/packages/nsys_recipe/recipes/gfx_hotspot/nsys_cpu_stats/server/app/static/index.html
+/usr/local/lib/python3.12/dist-packages/jupyterlab/static/index.html
+/usr/local/share/jupyter/lab/static/index.html
+/app/marduk/static/index.html
+/workspace/repo/static/index.html
+---
+root          52  0.1  0.0 20115940 558444 ?     Sl   20:02   0:06 python web_dashboard.py --host 0.0.0.0 --port 8888
+root        1291  0.9  0.0   4712  3436 ?        S    21:25   0:00 bash -c (find / -name web_dashboard.py 2>/dev/null; echo ---; find / -path */static/index.html 2>/dev/null; echo ---; ps aux | grep dashboard) > /workspace/outputs/_debug.txt 2>&1
+root        1292  0.0  0.0   4844  2300 ?        S    21:25   0:00 bash -c (find / -name web_dashboard.py 2>/dev/null; echo ---; find / -path */static/index.html 2>/dev/null; echo ---; ps aux | grep dashboard) > /workspace/outputs/_debug.txt 2>&1
+root        1296  0.0  0.0   3916  2152 ?        S    21:25   0:00 grep dashboard

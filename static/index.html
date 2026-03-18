@@ -2241,7 +2241,7 @@ function addVoiceMessage(type, text, cuneiform, romanization, animate) {
   container.scrollTop = container.scrollHeight;
 
   if (animate && type === 'bot') {
-    // Typewriter: cuneiform at ~80ms/char, text at ~25ms/char, romanization at ~20ms/char
+    // Typewriter: cuneiform at ~80ms/char, text at ~15ms/char, romanization at ~12ms/char
     const startCuneiform = () => {
       if (cDiv && cuneiform) {
         typewriterEffect(cDiv, cuneiform, 80, startText);
@@ -2250,11 +2250,11 @@ function addVoiceMessage(type, text, cuneiform, romanization, animate) {
       }
     };
     const startText = () => {
-      typewriterEffect(tDiv, text, 25, startRoman);
+      typewriterEffect(tDiv, text, 15, startRoman);
     };
     const startRoman = () => {
       if (rDiv && romanization) {
-        typewriterEffect(rDiv, romanization, 20, null);
+        typewriterEffect(rDiv, romanization, 12, null);
       }
     };
     startCuneiform();
@@ -2271,7 +2271,7 @@ function updateCuneiformDisplay(cuneiform, roman) {
   const romanEl = document.getElementById('cuneiform-roman');
   // Typewriter the big cuneiform display too
   typewriterEffect(textEl, cuneiform || '𒀀𒈾𒆪', 100, () => {
-    typewriterEffect(romanEl, roman || '', 30, null);
+    typewriterEffect(romanEl, roman || '', 18, null);
   });
 }
 
