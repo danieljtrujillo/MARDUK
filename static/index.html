@@ -1657,7 +1657,8 @@ const LATIN_TO_CUNEIFORM = {
 };
 
 // Akkadian greeting phrases for conversational responses
-const AKKADIAN_RESPONSES = {
+// These are FALLBACK only — the primary system searches the real training corpus via API
+const AKKADIAN_FALLBACK = {
   greetings: [
     { akk: 'šulmānu ana kâši', eng: 'Peace be upon you', cuneiform: '𒋗𒌌𒈠𒉡 𒀀𒈾 𒅗𒀀𒅆' },
     { akk: 'lū šulmu ana kâši', eng: 'May there be well-being for you', cuneiform: '𒇻 𒋗𒌌𒈬 𒀀𒈾 𒅗𒀀𒅆' },
@@ -1670,15 +1671,126 @@ const AKKADIAN_RESPONSES = {
   thanks: [
     { akk: 'šulmu attā', eng: 'You are well / Thank you', cuneiform: '𒋗𒌌𒈬 𒀜𒋫' },
   ],
-  default: [
-    { akk: 'awātka ašme', eng: 'I have heard your words', cuneiform: '𒀀𒉿𒀜𒅗 𒀸𒈨' },
-    { akk: 'ina libbi ālim šuātu', eng: 'In the heart of that city', cuneiform: '𒅔𒈾 𒇷𒁉 𒀀𒇷𒅎 𒋗𒀀𒌅' },
-    { akk: 'ṭuppu annû šaṭir', eng: 'This tablet is written', cuneiform: '𒌅𒁍 𒀭𒉡 𒊮𒋾𒊑' },
-    { akk: 'šarrum dannum iqbi', eng: 'The mighty king has spoken', cuneiform: '𒊮𒊒𒌝 𒁕𒉡𒌝 𒅅𒁉' },
-    { akk: 'awīlum šū ana bītim illik', eng: 'That man went to the house', cuneiform: '𒀀𒉿𒇻𒌝 𒋗 𒀀𒈾 𒁉𒋾𒅎 𒅋𒇷𒆪' },
-    { akk: 'ina ūm annîm', eng: 'On this day', cuneiform: '𒅔𒈾 𒌓𒅎 𒀭𒉌𒅎' },
-  ],
 };
+
+// ── Keyword extraction for contextual corpus search ──
+const STOP_WORDS = new Set([
+  'i','me','my','you','your','he','she','it','we','they','the','a','an',
+  'is','am','are','was','were','be','been','being','have','has','had',
+  'do','does','did','will','would','shall','should','can','could','may',
+  'might','must','need','to','of','in','for','on','at','by','with','from',
+  'about','into','through','and','but','or','not','no','so','if','then',
+  'that','this','what','which','who','whom','how','when','where','why',
+  'all','each','every','some','any','few','more','most','other','such',
+  'than','too','very','just','also','now','here','there','up','out',
+  'off','down','over','under','again','further','once','tell','say',
+  'said','know','think','want','like','get','make','go','come','take',
+  'see','look','find','give','use','let','put','thing','something',
+  'anything','nothing','much','many','well','really','quite','still',
+  'even','back','only','also','please','okay','ok','yes','yeah','sure',
+  'right','hey','oh','ah','um','uh','hmm','talk','speak','read','show',
+  'mean','call','ask','try','help','keep','work','seem','feel',
+]);
+
+// Topic → search terms mapping for smart corpus lookup
+const TOPIC_KEYWORDS = {
+  trade:     ['silver','gold','tin','copper','textile','merchandise','merchant','price','purchase','buy','sell','payment','debt','profit','loss','caravan','transport','goods','commodity','market','trade','business','commercial'],
+  legal:     ['witness','seal','contract','oath','tablet','court','judge','verdict','penalty','fine','law','crime','theft','dispute','agreement','bond','guarantee','surety','pledge'],
+  religion:  ['god','goddess','temple','prayer','offering','sacrifice','ritual','divine','priest','oracle','omen','blessing','curse','spirit','heaven','underworld','worship','festival','sacred'],
+  royal:     ['king','queen','prince','palace','throne','empire','conquest','army','battle','war','campaign','victory','tribute','decree','royal','ruler','reign','dynasty','crown','power'],
+  family:    ['son','daughter','father','mother','wife','husband','brother','sister','child','family','house','marriage','heir','inheritance','birth','death','widow','orphan','slave','servant'],
+  land:      ['field','land','garden','harvest','grain','barley','wheat','irrigation','canal','river','city','village','gate','wall','house','building','property','boundary','territory'],
+  numbers:   ['shekels','minas','talents','measure','weight','count','total','amount','quantity','half','third','quarter','one','two','three','four','five','six','seven','eight','nine','ten','hundred','thousand'],
+  letters:   ['letter','message','wrote','send','sent','heard','news','report','word','greeting','inform','reply','answer','order','command','instruction','request','speak','tablet'],
+  time:      ['month','year','day','date','season','time','period','ago','before','after','until','during','when','eponym','reign'],
+  animals:   ['donkey','ox','sheep','goat','cattle','horse','animal','herd','flock','bird','fish','lion','dog'],
+  materials: ['wool','leather','oil','beer','bread','food','water','wine','stone','wood','iron','bronze','clay','reed','linen','garment','cloth'],
+};
+
+function extractSearchTerms(userText) {
+  const lower = userText.toLowerCase();
+  const words = lower.replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+
+  // Check topic keywords for broader matches
+  const topicHits = [];
+  for (const [topic, keywords] of Object.entries(TOPIC_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lower.includes(kw)) {
+        topicHits.push(kw);
+      }
+    }
+  }
+
+  // Combine: direct content words + topic keyword hits (deduplicated)
+  const combined = [...new Set([...topicHits, ...words])];
+  return combined.slice(0, 4); // max 4 search terms
+}
+
+// Track recently used texts to avoid repetition
+const recentResponses = [];
+const MAX_RECENT = 20;
+
+async function searchCorpus(searchTerms) {
+  // Try each search term until we find results
+  for (const term of searchTerms) {
+    try {
+      const params = new URLSearchParams({ offset: 0, limit: 10, search: term });
+      const resp = await fetch('/api/training-data?' + params, { signal: AbortSignal.timeout(4000) });
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      if (data.rows && data.rows.length > 0) {
+        // Filter out recently used and very short translations
+        const fresh = data.rows.filter(r =>
+          r.target_text && r.target_text.length > 20 &&
+          r.source_text && r.source_text.length > 10 &&
+          !recentResponses.includes(r.source_text.substring(0, 50))
+        );
+        if (fresh.length > 0) {
+          // Pick a random result from the fresh set for variety
+          const pick = fresh[Math.floor(Math.random() * Math.min(fresh.length, 5))];
+          // Track it so we don't repeat
+          recentResponses.push(pick.source_text.substring(0, 50));
+          if (recentResponses.length > MAX_RECENT) recentResponses.shift();
+          return pick;
+        }
+        // If all filtered out, take any result
+        if (data.rows.length > 0) {
+          const pick = data.rows[Math.floor(Math.random() * Math.min(data.rows.length, 5))];
+          return pick;
+        }
+      }
+    } catch (e) {
+      // Network error or timeout — continue to next term or fall back
+      continue;
+    }
+  }
+  return null; // No results found
+}
+
+function truncateToSentence(text, maxLen) {
+  if (text.length <= maxLen) return text;
+  // Find last sentence boundary before maxLen
+  const truncated = text.substring(0, maxLen);
+  const lastPeriod = truncated.lastIndexOf('.');
+  const lastSemicolon = truncated.lastIndexOf(';');
+  const cutoff = Math.max(lastPeriod, lastSemicolon);
+  if (cutoff > maxLen * 0.4) return text.substring(0, cutoff + 1);
+  return truncated.trim() + '...';
+}
+
+function pickFallback(userText) {
+  const lower = userText.toLowerCase();
+  if (/\b(hello|hi|hey|greetings|good\s*(morning|evening|day)|salaam)\b/.test(lower)) {
+    return AKKADIAN_FALLBACK.greetings[Math.floor(Math.random() * AKKADIAN_FALLBACK.greetings.length)];
+  }
+  if (/\b(bye|goodbye|farewell|see\s*you|later|goodnight)\b/.test(lower)) {
+    return AKKADIAN_FALLBACK.farewell[Math.floor(Math.random() * AKKADIAN_FALLBACK.farewell.length)];
+  }
+  if (/\b(thanks?|thank\s*you|grateful)\b/.test(lower)) {
+    return AKKADIAN_FALLBACK.thanks[Math.floor(Math.random() * AKKADIAN_FALLBACK.thanks.length)];
+  }
+  return null; // no fallback match
+}
 
 function textToFakeCuneiform(text) {
   const lower = text.toLowerCase().replace(/[^a-z\s]/g, '');
@@ -1703,20 +1815,6 @@ function textToFakeCuneiform(text) {
     }
     return result || '𒀀';
   }).join(' ');
-}
-
-function pickResponse(userText) {
-  const lower = userText.toLowerCase();
-  if (/\b(hello|hi|hey|greetings|good\s*(morning|evening|day)|salaam)\b/.test(lower)) {
-    return AKKADIAN_RESPONSES.greetings[Math.floor(Math.random() * AKKADIAN_RESPONSES.greetings.length)];
-  }
-  if (/\b(bye|goodbye|farewell|see\s*you|later|goodnight)\b/.test(lower)) {
-    return AKKADIAN_RESPONSES.farewell[Math.floor(Math.random() * AKKADIAN_RESPONSES.farewell.length)];
-  }
-  if (/\b(thanks?|thank\s*you|grateful)\b/.test(lower)) {
-    return AKKADIAN_RESPONSES.thanks[Math.floor(Math.random() * AKKADIAN_RESPONSES.thanks.length)];
-  }
-  return AKKADIAN_RESPONSES.default[Math.floor(Math.random() * AKKADIAN_RESPONSES.default.length)];
 }
 
 let voiceRecognition = null;
@@ -1893,27 +1991,59 @@ function handleVoiceInput(transcript) {
   const userCuneiform = textToFakeCuneiform(transcript);
   addVoiceMessage('user', transcript, userCuneiform, null);
 
-  // Pick a response
-  const response = pickResponse(transcript);
+  // Extract keywords and search the real Akkadian corpus
+  const searchTerms = extractSearchTerms(transcript);
+  const fallback = pickFallback(transcript);
 
-  // Update big cuneiform display
-  updateCuneiformDisplay(response.cuneiform, response.akk);
+  if (fallback) {
+    // Simple greeting/farewell — use fallback directly
+    deliverResponse(fallback);
+    return;
+  }
 
-  // Show bot response
-  addVoiceMessage('bot', response.eng, response.cuneiform, response.akk);
+  if (searchTerms.length === 0) {
+    // No meaningful keywords — do a random search
+    searchTerms.push('silver', 'king', 'seal', 'tablet');
+  }
 
-  // Speak the response based on mode
-  const mode = document.getElementById('voice-response-mode').value;
-  setVoiceState('speaking');
+  setVoiceState('processing');
+  const statusEl = document.getElementById('voice-status');
+  statusEl.textContent = `Searching ancient texts for "${searchTerms[0]}"...`;
 
-  if (mode === 'akkadian') {
-    speakVoiceResponse(response.akk, 'akkadian', () => setVoiceState('ready'));
-  } else if (mode === 'english') {
-    speakVoiceResponse(response.eng, 'english', () => setVoiceState('ready'));
-  } else { // both
-    speakVoiceResponse(response.akk, 'akkadian', () => {
+  searchCorpus(searchTerms).then(result => {
+    if (result) {
+      // Build response from real corpus data
+      const akkText = truncateToSentence(result.source_text, 200);
+      const engText = truncateToSentence(result.target_text, 300);
+      const cuneiform = textToFakeCuneiform(akkText);
+      deliverResponse({ akk: akkText, eng: engText, cuneiform: cuneiform });
+    } else {
+      // API unreachable or no results — generic but varied fallback
+      const generic = [
+        { akk: 'awātka ašme', eng: 'I have heard your words', cuneiform: '𒀀𒉿𒀜𒅗 𒀸𒈨' },
+        { akk: 'ṭuppu annû šaṭir', eng: 'This tablet is written', cuneiform: '𒌅𒁍 𒀭𒉡 𒊮𒋾𒊑' },
+        { akk: 'šarrum dannum iqbi', eng: 'The mighty king has spoken', cuneiform: '𒊮𒊒𒌝 𒁕𒉡𒌝 𒅅𒁉' },
+      ];
+      deliverResponse(generic[Math.floor(Math.random() * generic.length)]);
+    }
+  });
+
+  function deliverResponse(response) {
+    updateCuneiformDisplay(response.cuneiform, response.akk);
+    addVoiceMessage('bot', response.eng, response.cuneiform, response.akk);
+
+    const mode = document.getElementById('voice-response-mode').value;
+    setVoiceState('speaking');
+
+    if (mode === 'akkadian') {
+      speakVoiceResponse(response.akk, 'akkadian', () => setVoiceState('ready'));
+    } else if (mode === 'english') {
       speakVoiceResponse(response.eng, 'english', () => setVoiceState('ready'));
-    });
+    } else {
+      speakVoiceResponse(response.akk, 'akkadian', () => {
+        speakVoiceResponse(response.eng, 'english', () => setVoiceState('ready'));
+      });
+    }
   }
 }
 
