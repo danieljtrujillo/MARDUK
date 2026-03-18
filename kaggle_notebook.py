@@ -1,10 +1,10 @@
 # MARDUK – Akkadian → English Neural Translation
 # Competition: Deep Past Initiative – Machine Translation (Kaggle)
 #
-# This notebook loads a fine-tuned ByT5-base model (Mamba-ByT5 backbone, score 38.31)
+# This notebook loads a fine-tuned ByT5-base model (v3, Score=26.52)
 # and generates translations for the test set.
 #
-# Model: google/byt5-base fine-tuned with BiMamba SSM adapter on 2,718 Akkadian-English pairs
+# Model: google/byt5-base fine-tuned on 2,718 Akkadian-English pairs with TGT_MAX=1024
 # Data source: theskateborg/marduk-model-download (Kaggle kernel output)
 # Architecture: Byte-level Seq2Seq with dual-view (raw + normalized) input packing
 
@@ -61,12 +61,12 @@ else:
     TEST_CSV = Path("/kaggle/input/deep-past-initiative-machine-translation/test.csv")
 OUTPUT_CSV = Path("/kaggle/working/submission.csv")
 
-# Generation parameters
+# Generation parameters (grid-searched optimal)
 SRC_MAX = 1024
-TGT_MAX = 256
-NUM_BEAMS = 5
-LENGTH_PENALTY = 0.9
-NO_REPEAT_NGRAM = 3
+TGT_MAX = 1024
+NUM_BEAMS = 3
+LENGTH_PENALTY = 1.2
+NO_REPEAT_NGRAM = 0
 BATCH_SIZE = 4
 
 # %% [markdown]
@@ -198,14 +198,15 @@ def decode_batch(packed_sources: list[str]) -> list[str]:
 
     use_amp = device.type == "cuda" and torch.cuda.is_bf16_supported()
     with torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_amp):
-        generated = model.generate(
-            **inputs,
+        gen_kwargs = dict(
             max_new_tokens=TGT_MAX,
             num_beams=NUM_BEAMS,
             length_penalty=LENGTH_PENALTY,
-            no_repeat_ngram_size=NO_REPEAT_NGRAM,
             early_stopping=True,
         )
+        if NO_REPEAT_NGRAM > 0:
+            gen_kwargs["no_repeat_ngram_size"] = NO_REPEAT_NGRAM
+        generated = model.generate(**inputs, **gen_kwargs)
 
     return tokenizer.batch_decode(generated, skip_special_tokens=True)
 
