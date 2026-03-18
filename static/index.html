@@ -1656,140 +1656,272 @@ const LATIN_TO_CUNEIFORM = {
   'ash': '𒀸', 'ish': '𒅖', 'ush': '𒍑',
 };
 
-// Akkadian greeting phrases for conversational responses
-// These are FALLBACK only — the primary system searches the real training corpus via API
-const AKKADIAN_FALLBACK = {
-  greetings: [
-    { akk: 'šulmānu ana kâši', eng: 'Peace be upon you', cuneiform: '𒋗𒌌𒈠𒉡 𒀀𒈾 𒅗𒀀𒅆' },
-    { akk: 'lū šulmu ana kâši', eng: 'May there be well-being for you', cuneiform: '𒇻 𒋗𒌌𒈬 𒀀𒈾 𒅗𒀀𒅆' },
-    { akk: 'ilū likrubūka', eng: 'May the gods bless you', cuneiform: '𒀭𒇻 𒇷𒆪𒊒𒁍𒅗' },
+// ══════════════════════════════════════════════════════════════
+// ══  ŠAMAŠ-IDDINA — Conversational Akkadian Scribe Engine  ══
+// ══════════════════════════════════════════════════════════════
+//
+// A temple scribe of Sippar who converses in Akkadian about
+// Mesopotamian life, history, trade, religion, law, and culture.
+// Responds with full multi-sentence dialogue — NOT corpus snippets.
+// Corpus search used only when user explicitly asks for texts.
+
+// ── Scribe's conversational knowledge base ──
+// Each topic has multiple full responses (akk = Akkadian transliteration,
+// eng = English translation). These are AUTHORED dialogue, not training data.
+
+const SCRIBE = {
+  name: 'Šamaš-iddina',
+  title: 'ṭupšar Šamaš ša Sippar',
+  titleEng: 'Scribe of Šamaš, of Sippar',
+
+  // Greeting intros the scribe prepends
+  intros: [
+    { akk: 'šulmānu ana kâši.', eng: 'Peace be upon you.' },
+    { akk: 'lū šulmu ana kâši, anāku Šamaš-iddina, ṭupšarru.', eng: 'May there be well-being for you — I am Šamaš-iddina, the scribe.' },
+    { akk: 'ana pānīka lū šulmu.', eng: 'Before you, let there be peace.' },
   ],
-  farewell: [
-    { akk: 'ina šulmi alik', eng: 'Go in peace', cuneiform: '𒅔𒈾 𒋗𒌌𒈪 𒀀𒇷𒆪' },
-    { akk: 'ilū lū ittīka', eng: 'May the gods be with you', cuneiform: '𒀭𒇻 𒇻 𒀜𒋾𒅗' },
-  ],
-  thanks: [
-    { akk: 'šulmu attā', eng: 'You are well / Thank you', cuneiform: '𒋗𒌌𒈬 𒀜𒋫' },
-  ],
+
+  responses: {
+    greeting: [
+      { akk: 'lū šulmu ana kâši, nakrum. anāku Šamaš-iddina, ṭupšar Šamaš ša Sippar. awâtka ašme — dabāb, u anāku lu ašappar.',
+        eng: 'May there be well-being for you, stranger. I am Šamaš-iddina, scribe of the sun god Šamaš, in the city of Sippar. I hear your words — speak, and I shall answer.' },
+      { akk: 'šulmu! ilū rabûtum likrubūka. mīnam tašâl? ṭuppu u qan ṭuppi ina qātīya — ša taqabbû lu ašaṭṭar.',
+        eng: 'Greetings! May the great gods bless you. What do you ask? The tablet and stylus are in my hand — what you speak, I shall inscribe.' },
+      { akk: 'ana balāṭika lū šulmu. ina bīt Šamaš wašbāku, u ana kâši ašappar. mīnam taqabbî?',
+        eng: 'For your life, may there be well-being. I reside in the temple of Šamaš, and I send word to you. What do you say?' },
+    ],
+
+    farewell: [
+      { akk: 'ina šulmi alik. ilū lū iddinūkum balāṭam dāriam. ṭuppu annûm gamru.',
+        eng: 'Go in peace. May the gods grant you eternal life. This tablet is finished.' },
+      { akk: 'lū šulmu ittīka, adi pānīka amāru. Šamaš u Aya likrubūka ina ḫarrānika.',
+        eng: 'May there be peace with you, until I see your face again. May Šamaš and Aya bless you on your journey.' },
+    ],
+
+    thanks: [
+      { akk: 'gamil awâtīka, u libbī iṭīb. kīma ṭupšarri ša Šamaš, awâtum damqātum ana libbīya irrubā.',
+        eng: 'Your words are gracious, and my heart is glad. As a scribe of Šamaš, good words enter my heart.' },
+    ],
+
+    trade: [
+      { akk: 'tamkārum ša māt Aššur kaspam u anākam ina harrān Kanìš ubbalu. šīmum ša lubūšī ina mātim šuāti damiq — 2 mana kaspam ana 1 bilat anākim inaddinū. tamkārū iṣṣabtū u lā ipaṭṭarū adi šīmam igammurū.',
+        eng: 'The merchant of Assyria carries silver and tin on the road to Kaneš. The price of textiles in that land is good — they give 2 minas of silver for 1 talent of tin. The merchants are bound and will not be released until they complete the price.' },
+      { akk: 'ina kārim ša Kanìš, kaspum gamrum — ana tamkārī Aššur šīmum ša lubūšī u anākim rabî. awīlum ša kaspam iddinu, ṭuppam ina kišibbīšu ukīn. šumma awīlum lā inaddin, dajjānum idanninšu.',
+        eng: 'In the trading colony of Kaneš, the silver is accounted for — for the merchants of Assur, the price of textiles and tin is great. The man who gave silver confirmed the tablet with his seal. If a man does not pay, the judge will compel him.' },
+      { akk: 'egerrâm eppuš — bēlī, šīmam ša erim u šipātim ina māt Aššur šūqul. kaspam gamram ina ālim ša Kanìš umallî. ellutam u anākam ana harrānim lūbil.',
+        eng: 'I make a profit — my lord, weigh the price of copper and wool in the land of Assur. I have collected the full silver in the city of Kaneš. Let me bring the refined metal and tin for the caravan journey.' },
+    ],
+
+    silver: [
+      { akk: 'kaspum — šarrum ša siparri u ḫurāṣi. ina qāt tamkārim kaspam inaddinū. 1 šiqil kaspim ana 5 sūt šeˀim — šīmum ša ālim Sippar annûm. ina šattim annîtim kaspum watar — libbī iṭīb.',
+        eng: 'Silver — the king of bronze and gold. In the hand of the merchant, they give silver. One shekel of silver for five sūt of barley — that is the price in the city of Sippar this season. In this year, silver is abundant — my heart is glad.' },
+      { akk: 'kaspum ša māt Aššur elûm u damiq. awīlum ša kaspam inamdin, kunukkam iknuk. ḫurāṣam u kaspam ina bīt ili iškunu — ilū lū iḫdū.',
+        eng: 'The silver of the land of Assur is pure and fine. The man who gives silver has applied his seal. Gold and silver they have placed in the house of the god — may the gods rejoice.' },
+    ],
+
+    gold: [
+      { akk: 'ḫurāṣum — damqum ša ilī. ina bīt Šamaš ḫurāṣam u kaspam iškunu ana šarrim — niqê eli ḫurāṣim inaddinū. ḫurāṣum rabûm ina libbi ēkallim šakin.',
+        eng: 'Gold — the precious metal of the gods. In the temple of Šamaš, they placed gold and silver for the king — sacrifices upon the gold they offer. Great quantities of gold are stored within the palace.' },
+    ],
+
+    religion: [
+      { akk: 'Šamaš — šar šamê u erṣetim, dajjān ilī u awīlūtim. ina šēr ūmim ina šamê izzaz, u nūrašu māssa irappud. ina maḫar Šamaš niqâm aqqi, u têrētim ašâl — Šamaš kittam u mīšaram iraˀˀam.',
+        eng: 'Šamaš — king of heaven and earth, judge of gods and humanity. At dawn he stands in the heavens, and his light covers the land. Before Šamaš I made an offering, and I consulted the omens — Šamaš loves truth and justice.' },
+      { akk: 'ilū rabûtum — Anu, Enlil, u Ea — ina šamê wašbū. Marduk, bēl Bābili, ina Esagila iturru. niqê u kadre ana ilī rabûtim iddinū. šumma awīlum la ipallah ilašu, arnam ileqqe.',
+        eng: 'The great gods — Anu, Enlil, and Ea — dwell in the heavens. Marduk, lord of Babylon, resides in Esagila. Offerings and gifts they give to the great gods. If a man does not fear his god, he will bear guilt.' },
+      { akk: 'ina bīt ili erēb šamšim, kūmam u niqâm ana Šamaš aqqi. bārûm têrētim ištāl — immeru šalmu, u ilum iṣlī. ūmum annûm damiq ana epēšim.',
+        eng: 'At the temple at sunset, I made a burnt offering and sacrifice to Šamaš. The diviner consulted the omens — the sheep is sound, and the god has accepted. This day is favorable for undertaking action.' },
+    ],
+
+    king: [
+      { akk: 'šarrum dannum, šar kiššatim, šar māt Aššur. ina ūm annîm šarrum ana ṣābīšu iqbī: "alik! māssa luḫṣur, u nišī lū šalmā." ummānātum ša šarrim ina eqlim izzazzū u nakram imaḫḫaṣū.',
+        eng: 'The mighty king, king of the universe, king of the land of Assur. On this day, the king spoke to his troops: "Go! I will guard the land, and the people shall be whole." The armies of the king stand in the field and strike the enemy.' },
+      { akk: 'Ḫammurapi, šar Bābili, dīnum kīnum ina mātim iškun. awīlum ša lā idīn — dajjānum ša šarrim idanninšu. dīn mīšarim ša Ḫammurapi ana dār ūmē iššaṭṭar ina narê.',
+        eng: 'Hammurabi, king of Babylon, established just laws in the land. The man who did not pay — the judge of the king shall compel him. The just judgments of Hammurabi are inscribed on the stele for all time.' },
+    ],
+
+    law: [
+      { akk: 'dīnum kīnum ina pī dajjānim. šumma awīlum awīlam iḫtabat — 1 mana kaspam inaddin. šumma mār awīlim šinnī mār awīlim ittadi — šinnīšu inaddû. ša Ḫammurapi šarrim dīnū annûtum.',
+        eng: 'A just verdict is in the mouth of the judge. If a man strikes another man — he shall pay one mina of silver. If a gentleman knocks out the tooth of another gentleman — his own tooth shall be knocked out. These are the laws of King Hammurabi.' },
+      { akk: 'šībūtum ina maḫar dajjānim izzazzū — ša kaspim u ša eqlim u ša wardim. awīlum ša šībūssu lā iddinu, aran dīnim šuāti ītabal. ṭuppam ša rikistim ikšudu u kunukkam iknukū.',
+        eng: 'Witnesses stand before the judge — concerning silver, and concerning a field, and concerning a slave. The man who does not provide his testimony bears the penalty of that case. They drew up the tablet of the contract and applied the seal.' },
+    ],
+
+    family: [
+      { akk: 'bītum ša abīya — ina libbīšu aššatum u mārū wašbū. abī tamkārum ša māt Aššur, u ummī ṣuḫārtam urtabbī. mārū ša bītim ina bīt ṭuppi ilmadū — ša ilammdū, ṭupšarrūssu ilâˀˀu.',
+        eng: 'The house of my father — within it, a wife and sons dwell. My father was a merchant of the land of Assur, and my mother raised the daughter. The sons of the house studied in the scribal school — those who study well shall become scribes.' },
+      { akk: 'aššatum ša awīlim — ṣerḫat bītim. šumma ḫāwīrša imtūt, aplam u bīt abīša irašši. šumma mārū lā ibašši, aḫḫūša šeriktašša utārrū. šarratum ina ēkallim — amatam ṭābtam taqabbī.',
+        eng: 'The wife of a man — she is the bond of the household. If her husband dies, she retains the heir and her father\'s estate. If there are no sons, her brothers return her dowry. The queen in the palace — she speaks a gracious word.' },
+    ],
+
+    war: [
+      { akk: 'ummānātum ša šarrim ina eqlim izzazzū. kakke ilqēma ana nakrim irde. ina tāḫāzim dannim qurādum imgur — šallat nakrim ana ālim utēr. šarrum ana ilīšu niqâm iqqi u šalmāniš ina ēkallim ītūr.',
+        eng: 'The armies of the king stand in the field. He took up weapons and pursued the enemy. In fierce battle, the warrior was victorious — he brought the spoils of the enemy back to the city. The king made an offering to his god and returned safely to the palace.' },
+      { akk: 'nakrum ina abulli ālim izzaz — ālum ina pāni nakrim dannumma. ṣābum ša šarrim karê iṣṣur u mê ušēṣi. adi 3 waraḫ tāḫāzim — nakrum iddī u ina šulmi ittalak. šarrum dannum kīnam idīn.',
+        eng: 'The enemy stands at the gate of the city — the city is fortified against the enemy. The king\'s soldiers guard the granary and channel the water. For three months of battle — the enemy withdrew and departed in peace. The mighty king rendered true justice.' },
+    ],
+
+    writing: [
+      { akk: 'anāku ṭupšarrum — qan ṭuppi ina qātīya, u ṭiṭṭam ina šuqlīya arakkus. ina bīt ṭuppi ša Sippar alamdu — Šumeriam u Akkadiam, šaṭāram u šasûm. ṭuppum annûm ina ṭiṭṭim šaṭir u ina kīrim ḫamṭam iṣṣalim.',
+        eng: 'I am the scribe — the reed stylus is in my hand, and I press the clay on my knee. In the scribal school of Sippar, I studied — Sumerian and Akkadian, writing and reading. This tablet is inscribed on clay, and in the kiln it fires to hardness.' },
+      { akk: 'ṭuppum kīma narê — awâtum ina libbīšu ana dār ūmē. kīma šarrum Ḫammurapi dīnātīšu ina narê išṭuru, u anāku awâtīya ina ṭuppim ašaṭṭar. ša ṭuppam ipašsiṭu — ēzib, ša ṭuppam inamdin — ilū likrubūšu.',
+        eng: 'A tablet is like a monument — the words within it endure for eternity. Just as King Hammurabi inscribed his laws on the stele, so I inscribe my words on the tablet. He who erases a tablet — leave him, but he who preserves a tablet — may the gods bless him.' },
+    ],
+
+    food: [
+      { akk: 'ina Sippar — šeˀum u kurunnum damiq. akālam u šikaram ana ummānātim iddinū. ina eqlim šeˀam ikṣurū u ina nukaribbim šammam u karpat šikārim iššū. eleppum ša samīdum ina nārim illak — ina kārim ša Sippar, mê u akālam ibaššī.',
+        eng: 'In Sippar — the barley and the fine beer are good. They gave bread and beer to the workers. In the field, they harvested the barley, and from the gardener, they brought herbs and a jar of beer. The flour-boat travels on the river — in the harbor of Sippar, water and bread are plentiful.' },
+      { akk: 'naptanum ša šarrim — akālam u šikāram u šammam ina maḫar šarrim iškunu. diqdīqam u nūnam u ṣēnam inaddinū. naptanum rabûm ana ilī u šarri — kīma niqê damqim.',
+        eng: 'The feast of the king — bread, beer, and herbs they set before the king. Fowl and fish and sheep they served. A great banquet for the god and the king — like a fine offering.' },
+    ],
+
+    city: [
+      { akk: 'Sippar — āl Šamaš, ālum rabûm ša Šumerim u Akkadim. ina libbi ālim — bīt ilim, ēkallum, u bīt kārim wašbū. nišū ša Sippar šalmū u hadû — tamkārū u ṭupšarrū u ummānū ina ālim ibaššī.',
+        eng: 'Sippar — the city of Šamaš, a great city of Sumer and Akkad. Within the city — the temple, the palace, and the trading quarter stand. The people of Sippar are well and rejoicing — merchants, scribes, and craftsmen are found in the city.' },
+      { akk: 'Bābilum — bāb ilī, ālum ša Marduk. Esagila ēkallam iḫīṭ — ziqqurratum šamê ulappat. ina sūqī ša Bābili, nišū ša mātātim kalâma illakā — tamkārū ša māt Elamtim u ša māt Aššur u ša māt Ḫatti.',
+        eng: 'Babylon — the gate of the gods, the city of Marduk. Esagila rivals the palace — its ziggurat touches the heavens. In the streets of Babylon, people from all lands walk — merchants of Elam, of Assyria, and of the Hittite land.' },
+    ],
+
+    astrology: [
+      { akk: 'ina šamê kakkabū innamerū — Šamaš u Sin u Ištar. bārûm ina ūm annîm kakkabī iṭṭul u iššakkan têrētim. šumma kakkabum rabûm ina erēb Šamši ippuḫ — šattum šī ša ḫegallu ana mātim.',
+        eng: 'In the heavens, the stars appear — Šamaš the sun, Sin the moon, and Ištar the planet Venus. The diviner on this day observed the stars and set the omens. If the great star rises in the west at sunset — that year shall be one of abundance for the land.' },
+    ],
+
+    question: [
+      { akk: 'mīnam tašâl? anāku ṭupšar Šamaš — awâtum ša māt Šumerim u Akkadim ina libbīya šaknā. ša kaspim, ša ilī, ša šarri, ša dīnim — šuˀˀil, u anāku lu ašappar. qan ṭuppi ina qātīya — ṭuppam lu ašṭur.',
+        eng: 'What do you ask? I am the scribe of Šamaš — the knowledge of the lands of Sumer and Akkad is set within me. Concerning silver, concerning the gods, concerning the king, concerning the law — ask, and I shall send word. The stylus is in my hand — I shall write the tablet.' },
+      { akk: 'awâtka ašme, u libbī iḫdî ana turrim. anāku Šamaš-iddina — ina bīt ṭuppi ša Sippar almad awâtim ša ūm pānā. mīnam ana kâšim lu aqabbī? šuˀˀil šanîam, u lu ašappar.',
+        eng: 'I have heard your words, and my heart rejoices to answer. I am Šamaš-iddina — in the scribal school of Sippar, I learned the words of ancient days. What shall I say to you? Ask another question, and I shall respond.' },
+    ],
+
+    identity: [
+      { akk: 'anāku Šamaš-iddina mār Ibni-Šamaš, ṭupšar bīt Šamaš ša Sippar. abī ṭupšarram ilammad, u abī abīya ṭupšarram ilammad. ina bīt ṭuppi ša Sippar — Šumeriam u Akkadiam u ḫisāb kaspim u šeˀim almad. ṭuppī tešemmē — anāku aššaṭṭar.',
+        eng: 'I am Šamaš-iddina, son of Ibni-Šamaš, scribe of the temple of Šamaš in Sippar. My father learned to be a scribe, and my father\'s father learned to be a scribe. In the scribal school of Sippar, I studied Sumerian and Akkadian and the reckoning of silver and barley. You hear my tablets — and I inscribe them.' },
+    ],
+
+    weather: [
+      { akk: 'Adad — bēl zunnim u birqim. ina šattim annîtim zūnū iraḫḫiṣū u eqlum šeˀam inaddin. šumma Adad ina šamê irammum — ikribam ana Adad lū niqqi, u šamûm liznun.',
+        eng: 'Adad — lord of rain and lightning. In this year, the rains have pounded and the field yields barley. If Adad thunders in the heavens — let us make a prayer-offering to Adad, and may the skies give rain.' },
+    ],
+
+    animals: [
+      { akk: 'imērum — ša harrānim, awīlum ša imēram iṣṣabtū bilassunu inaššī. alpu ina eqlim errešam irde. ṣēnum u ūlum ina nawê irˀa — rēˀûm ša šarrim inaṣṣaršunūti. labbu ina ḫurbāšim — šarrum labba imgur u iqtul.',
+        eng: 'The donkey — the beast of the caravan road, the man who holds the donkey carries its load. The ox drives the plow in the field. Sheep and goats graze in the pasture — the shepherd of the king watches over them. The lion in the thicket — the king hunted the lion and slew it.' },
+    ],
+
+    death: [
+      { akk: 'awīlum imtūt — ina erṣetim lā târi illak. ana kurnugî, bīt erṣetim rapištim — nišū ša pānā wašbū. kispu ana eṭemmīšu niqqi — mê u akālam ana eṭemmim iddinū. lū naḫšu napištašu.',
+        eng: 'The man has died — he goes to the land of no return. To the underworld, the house of the vast earth — the people of old dwell there. We make funerary offerings to his ghost — water and food they give to the spirit. May his soul be at rest.' },
+    ],
+
+    love: [
+      { akk: 'Ištar — bēlet ramānim u qabli. ša irâmu — Ištar ina pānīšu izzaz, u libbašu ṭāb. ḫāwīrum ana aššatīšu iqbi: "kīma kakkabim ina šamê attī, u anāku ina ṣilli kīma rīmim lū annaṣṣarka."',
+        eng: 'Ishtar — lady of love and battle. He who loves — Ishtar stands before him, and his heart is glad. The husband spoke to his wife: "Like a star in the heavens you are, and I, in your shadow, like a wild bull, shall protect you."' },
+    ],
+
+    medicine: [
+      { akk: 'āšipum ana marṣim iqbi: "rikis damqim arkassu — ina šammi u mê samni marṣam lū uballiṭ." šipat Ea u Marduk eli marṣim imannu — šumma ilu ittīšu, lū iballuṭ.',
+        eng: 'The healer spoke to the sick man: "A fine remedy follows — with herbs and oil-water I shall heal the patient." The incantation of Ea and Marduk he recites over the patient — if the god is with him, he shall recover.' },
+    ],
+
+    music: [
+      { akk: 'ina isinnim ša ilī — narûm zamāram izammur, u ina ḫalḫallati ittanaplasu. kalûm ina maḫar ilī iknuk u širam ša ilī izammur. ina ēkallim ša šarrim — narûm ina kinnārim u ṭubbum u ḫalḫallati ulassim.',
+        eng: 'At the festival of the gods — the singer sings a song, and they dance to the drum. The lamentation priest bows before the god and sings the hymn of the gods. In the palace of the king — the musician plays the lyre, the kettledrum, and the cymbals.' },
+    ],
+  },
 };
 
-// ── Keyword extraction for contextual corpus search ──
-const STOP_WORDS = new Set([
-  'i','me','my','you','your','he','she','it','we','they','the','a','an',
-  'is','am','are','was','were','be','been','being','have','has','had',
-  'do','does','did','will','would','shall','should','can','could','may',
-  'might','must','need','to','of','in','for','on','at','by','with','from',
-  'about','into','through','and','but','or','not','no','so','if','then',
-  'that','this','what','which','who','whom','how','when','where','why',
-  'all','each','every','some','any','few','more','most','other','such',
-  'than','too','very','just','also','now','here','there','up','out',
-  'off','down','over','under','again','further','once','tell','say',
-  'said','know','think','want','like','get','make','go','come','take',
-  'see','look','find','give','use','let','put','thing','something',
-  'anything','nothing','much','many','well','really','quite','still',
-  'even','back','only','also','please','okay','ok','yes','yeah','sure',
-  'right','hey','oh','ah','um','uh','hmm','talk','speak','read','show',
-  'mean','call','ask','try','help','keep','work','seem','feel',
-]);
+// ── Topic detection with scored matching ──
+const TOPIC_PATTERNS = [
+  { topic: 'greeting',  score: 10, re: /\b(hello|hi|hey|greetings?|good\s*(morning|evening|day|afternoon)|salaam|welcome|howdy|sup)\b/i },
+  { topic: 'farewell',  score: 10, re: /\b(bye|goodbye|farewell|see\s*you|later|goodnight|take\s*care|peace\s*out)\b/i },
+  { topic: 'thanks',    score: 10, re: /\b(thanks?|thank\s*you|grateful|appreciate)\b/i },
+  { topic: 'identity',  score: 9,  re: /\b(who\s*are\s*you|your\s*name|introduce|yourself|what.*you|are\s*you)\b/i },
+  { topic: 'question',  score: 5,  re: /\b(what\s*(do|can|else)|tell\s*me\s*(about|more)|teach|explain|describe)\b/i },
+  { topic: 'trade',     score: 7,  re: /\b(trade|trad(ing|er)|merchant|caravan|buy|sell|purchase|commerce|market|goods|commodity|profit|business|import|export)\b/i },
+  { topic: 'silver',    score: 7,  re: /\b(silver|shekel|mina|money|pay(ment)?|coin|wealth|currency|debt)\b/i },
+  { topic: 'gold',      score: 7,  re: /\b(gold|treasure|precious|jewel|ring|ornament)\b/i },
+  { topic: 'religion',  score: 7,  re: /\b(god|goddess|temple|prayer|offering|sacrifice|ritual|divine|priest|oracle|omen|bless|curse|worship|festival|sacred|spirit|heaven|relig)/i },
+  { topic: 'king',      score: 7,  re: /\b(king|queen|prince|palace|throne|empire|royal|ruler|reign|dynasty|crown|pharaoh|emperor|sovereign|hammurabi|sargon|nebuchadnezzar)\b/i },
+  { topic: 'law',       score: 7,  re: /\b(law|legal|judge|court|witness|contract|seal|oath|crime|punishment|penalty|fine|verdict|justice|guilty|innocent|trial|dispute)\b/i },
+  { topic: 'family',    score: 7,  re: /\b(family|father|mother|son|daughter|wife|husband|brother|sister|child|marriage|wedding|heir|inherit|birth|parent|ancestor)\b/i },
+  { topic: 'war',       score: 7,  re: /\b(war|battle|army|soldier|fight|weapon|sword|shield|conquest|siege|enemy|attack|defend|victory|defeat|warrior|military|troops)\b/i },
+  { topic: 'writing',   score: 7,  re: /\b(writ(e|ing|ten)|scribe|tablet|cuneiform|clay|stylus|script|inscription|record|document|library|literat)\b/i },
+  { topic: 'food',      score: 7,  re: /\b(food|eat|drink|beer|bread|barley|wheat|grain|feast|banquet|cook|recipe|meal|wine|water|hunger|farm|harvest|garden|agriculture)\b/i },
+  { topic: 'city',      score: 7,  re: /\b(city|town|village|babylon|sippar|nineveh|ur\b|uruk|assur|sumer|akkad|mesopotamia|iraq|persia|tigris|euphrates|river|canal)\b/i },
+  { topic: 'astrology', score: 7,  re: /\b(star|moon|sun|planet|eclipse|astrol|astron|sky|heaven|comet|constellation|venus|mercury|zodiac|horoscope|celestial|cosmos)\b/i },
+  { topic: 'death',     score: 7,  re: /\b(death|die|dead|afterlife|underworld|burial|tomb|grave|funeral|ghost|spirit|soul|mourn|immortal)\b/i },
+  { topic: 'love',      score: 7,  re: /\b(love|romance|desire|passion|heart|ishtar|sexy|beautiful|attract|affection|kiss|embrace|husband|wife|marr)\b/i },
+  { topic: 'medicine',  score: 7,  re: /\b(medicine|heal|sick|disease|doctor|herb|remedy|cure|ill|health|plague|wound|pain|fever)\b/i },
+  { topic: 'animals',   score: 7,  re: /\b(animal|donkey|horse|ox|sheep|goat|cattle|lion|dog|bird|fish|snake|hunt|herd|flock)\b/i },
+  { topic: 'weather',   score: 7,  re: /\b(weather|rain|storm|thunder|lightning|flood|drought|wind|cloud|season|climate|cold|hot|snow)\b/i },
+  { topic: 'music',     score: 7,  re: /\b(music|song|sing|drum|lyre|instrument|dance|danc|hymn|chant|melody|perform|entertain)\b/i },
+];
 
-// Topic → search terms mapping for smart corpus lookup
-const TOPIC_KEYWORDS = {
-  trade:     ['silver','gold','tin','copper','textile','merchandise','merchant','price','purchase','buy','sell','payment','debt','profit','loss','caravan','transport','goods','commodity','market','trade','business','commercial'],
-  legal:     ['witness','seal','contract','oath','tablet','court','judge','verdict','penalty','fine','law','crime','theft','dispute','agreement','bond','guarantee','surety','pledge'],
-  religion:  ['god','goddess','temple','prayer','offering','sacrifice','ritual','divine','priest','oracle','omen','blessing','curse','spirit','heaven','underworld','worship','festival','sacred'],
-  royal:     ['king','queen','prince','palace','throne','empire','conquest','army','battle','war','campaign','victory','tribute','decree','royal','ruler','reign','dynasty','crown','power'],
-  family:    ['son','daughter','father','mother','wife','husband','brother','sister','child','family','house','marriage','heir','inheritance','birth','death','widow','orphan','slave','servant'],
-  land:      ['field','land','garden','harvest','grain','barley','wheat','irrigation','canal','river','city','village','gate','wall','house','building','property','boundary','territory'],
-  numbers:   ['shekels','minas','talents','measure','weight','count','total','amount','quantity','half','third','quarter','one','two','three','four','five','six','seven','eight','nine','ten','hundred','thousand'],
-  letters:   ['letter','message','wrote','send','sent','heard','news','report','word','greeting','inform','reply','answer','order','command','instruction','request','speak','tablet'],
-  time:      ['month','year','day','date','season','time','period','ago','before','after','until','during','when','eponym','reign'],
-  animals:   ['donkey','ox','sheep','goat','cattle','horse','animal','herd','flock','bird','fish','lion','dog'],
-  materials: ['wool','leather','oil','beer','bread','food','water','wine','stone','wood','iron','bronze','clay','reed','linen','garment','cloth'],
-};
+// Track conversation for anti-repetition
+const conversationHistory = [];
+const usedResponseKeys = new Set();
 
-function extractSearchTerms(userText) {
-  const lower = userText.toLowerCase();
-  const words = lower.replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+function detectTopics(userText) {
+  const matches = [];
+  for (const { topic, score, re } of TOPIC_PATTERNS) {
+    if (re.test(userText)) {
+      matches.push({ topic, score });
+    }
+  }
+  // Sort by score descending
+  matches.sort((a, b) => b.score - a.score);
+  return matches.length > 0 ? matches : [{ topic: 'question', score: 1 }];
+}
 
-  // Check topic keywords for broader matches
-  const topicHits = [];
-  for (const [topic, keywords] of Object.entries(TOPIC_KEYWORDS)) {
-    for (const kw of keywords) {
-      if (lower.includes(kw)) {
-        topicHits.push(kw);
+function pickScribeResponse(userText) {
+  const topics = detectTopics(userText);
+  const primaryTopic = topics[0].topic;
+
+  // Check if user is explicitly asking for texts/corpus snippets
+  const wantsCorpus = /\b(show|find|search|look\s*up|read|recite|example|excerpt|passage|text|snippet|corpus|original|transliterat)\b/i.test(userText);
+
+  const responses = SCRIBE.responses[primaryTopic];
+  if (!responses || responses.length === 0) {
+    return SCRIBE.responses.question[0];
+  }
+
+  // Avoid repeating the same response
+  const available = responses.filter((r, i) => {
+    const key = `${primaryTopic}_${i}`;
+    return !usedResponseKeys.has(key);
+  });
+
+  let pool = available.length > 0 ? available : responses;
+  let pick = pool[Math.floor(Math.random() * pool.length)];
+  let pickIdx = responses.indexOf(pick);
+  usedResponseKeys.add(`${primaryTopic}_${pickIdx}`);
+
+  // After using all for a topic, reset that topic
+  if (available.length <= 1) {
+    for (let i = 0; i < responses.length; i++) {
+      usedResponseKeys.delete(`${primaryTopic}_${i}`);
+    }
+  }
+
+  // If there's a secondary topic, try to weave in a connecting phrase
+  if (topics.length > 1 && topics[1].topic !== primaryTopic) {
+    const secondaryResponses = SCRIBE.responses[topics[1].topic];
+    if (secondaryResponses && secondaryResponses.length > 0) {
+      const secondary = secondaryResponses[Math.floor(Math.random() * secondaryResponses.length)];
+      // Take the first sentence of the secondary response as a bridge
+      const secEngFirst = secondary.eng.split(/[.!]/).filter(Boolean)[0];
+      const secAkkFirst = secondary.akk.split(/[.!]/).filter(Boolean)[0];
+      if (secEngFirst && secAkkFirst) {
+        pick = {
+          akk: pick.akk + ' ' + secAkkFirst.trim() + '.',
+          eng: pick.eng + ' ' + secEngFirst.trim() + '.',
+        };
       }
     }
   }
 
-  // Combine: direct content words + topic keyword hits (deduplicated)
-  const combined = [...new Set([...topicHits, ...words])];
-  return combined.slice(0, 4); // max 4 search terms
-}
-
-// Track recently used texts to avoid repetition
-const recentResponses = [];
-const MAX_RECENT = 20;
-
-async function searchCorpus(searchTerms) {
-  // Try each search term until we find results
-  for (const term of searchTerms) {
-    try {
-      const params = new URLSearchParams({ offset: 0, limit: 10, search: term });
-      const resp = await fetch('/api/training-data?' + params, { signal: AbortSignal.timeout(4000) });
-      if (!resp.ok) continue;
-      const data = await resp.json();
-      if (data.rows && data.rows.length > 0) {
-        // Filter out recently used and very short translations
-        const fresh = data.rows.filter(r =>
-          r.target_text && r.target_text.length > 20 &&
-          r.source_text && r.source_text.length > 10 &&
-          !recentResponses.includes(r.source_text.substring(0, 50))
-        );
-        if (fresh.length > 0) {
-          // Pick a random result from the fresh set for variety
-          const pick = fresh[Math.floor(Math.random() * Math.min(fresh.length, 5))];
-          // Track it so we don't repeat
-          recentResponses.push(pick.source_text.substring(0, 50));
-          if (recentResponses.length > MAX_RECENT) recentResponses.shift();
-          return pick;
-        }
-        // If all filtered out, take any result
-        if (data.rows.length > 0) {
-          const pick = data.rows[Math.floor(Math.random() * Math.min(data.rows.length, 5))];
-          return pick;
-        }
-      }
-    } catch (e) {
-      // Network error or timeout — continue to next term or fall back
-      continue;
-    }
-  }
-  return null; // No results found
-}
-
-function truncateToSentence(text, maxLen) {
-  if (text.length <= maxLen) return text;
-  // Find last sentence boundary before maxLen
-  const truncated = text.substring(0, maxLen);
-  const lastPeriod = truncated.lastIndexOf('.');
-  const lastSemicolon = truncated.lastIndexOf(';');
-  const cutoff = Math.max(lastPeriod, lastSemicolon);
-  if (cutoff > maxLen * 0.4) return text.substring(0, cutoff + 1);
-  return truncated.trim() + '...';
-}
-
-function pickFallback(userText) {
-  const lower = userText.toLowerCase();
-  if (/\b(hello|hi|hey|greetings|good\s*(morning|evening|day)|salaam)\b/.test(lower)) {
-    return AKKADIAN_FALLBACK.greetings[Math.floor(Math.random() * AKKADIAN_FALLBACK.greetings.length)];
-  }
-  if (/\b(bye|goodbye|farewell|see\s*you|later|goodnight)\b/.test(lower)) {
-    return AKKADIAN_FALLBACK.farewell[Math.floor(Math.random() * AKKADIAN_FALLBACK.farewell.length)];
-  }
-  if (/\b(thanks?|thank\s*you|grateful)\b/.test(lower)) {
-    return AKKADIAN_FALLBACK.thanks[Math.floor(Math.random() * AKKADIAN_FALLBACK.thanks.length)];
-  }
-  return null; // no fallback match
+  return { ...pick, wantsCorpus, searchHint: primaryTopic };
 }
 
 function textToFakeCuneiform(text) {
@@ -1799,7 +1931,6 @@ function textToFakeCuneiform(text) {
     let result = '';
     let i = 0;
     while (i < word.length) {
-      // Try 3-char, then 2-char, then 1-char
       if (i + 2 < word.length && LATIN_TO_CUNEIFORM[word.substring(i, i + 3)]) {
         result += LATIN_TO_CUNEIFORM[word.substring(i, i + 3)];
         i += 3;
@@ -1810,11 +1941,34 @@ function textToFakeCuneiform(text) {
         result += LATIN_TO_CUNEIFORM[word[i]];
         i++;
       } else {
-        i++; // skip unmapped chars
+        i++;
       }
     }
     return result || '𒀀';
   }).join(' ');
+}
+
+// ── Corpus search (only used when user explicitly asks for texts) ──
+async function searchCorpusForSnippet(topic) {
+  const SEARCH_TERMS = {
+    trade: 'silver merchant', silver: 'shekel silver', gold: 'gold',
+    religion: 'temple offering', king: 'king', law: 'witness seal',
+    family: 'son daughter', war: 'battle', writing: 'tablet',
+    food: 'barley beer', city: 'city', animals: 'sheep donkey',
+    question: 'tablet', greeting: 'peace', farewell: 'peace',
+  };
+  const term = SEARCH_TERMS[topic] || topic;
+  try {
+    const params = new URLSearchParams({ offset: Math.floor(Math.random() * 20), limit: 5, search: term });
+    const resp = await fetch('/api/training-data?' + params, { signal: AbortSignal.timeout(4000) });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (data.rows && data.rows.length > 0) {
+      const valid = data.rows.filter(r => r.source_text && r.target_text && r.target_text.length > 15);
+      if (valid.length > 0) return valid[Math.floor(Math.random() * valid.length)];
+    }
+  } catch (e) {}
+  return null;
 }
 
 let voiceRecognition = null;
@@ -1991,42 +2145,27 @@ function handleVoiceInput(transcript) {
   const userCuneiform = textToFakeCuneiform(transcript);
   addVoiceMessage('user', transcript, userCuneiform, null);
 
-  // Extract keywords and search the real Akkadian corpus
-  const searchTerms = extractSearchTerms(transcript);
-  const fallback = pickFallback(transcript);
+  // Pick a full conversational response from the scribe's knowledge
+  const { akk, eng, wantsCorpus, searchHint } = pickScribeResponse(transcript);
+  const cuneiform = textToFakeCuneiform(akk);
 
-  if (fallback) {
-    // Simple greeting/farewell — use fallback directly
-    deliverResponse(fallback);
-    return;
+  // If user is explicitly requesting texts/corpus, fetch one and append it
+  if (wantsCorpus) {
+    const statusEl = document.getElementById('voice-status');
+    statusEl.textContent = `Searching ancient texts...`;
+    searchCorpusForSnippet(searchHint).then(snippet => {
+      let finalAkk = akk;
+      let finalEng = eng;
+      if (snippet) {
+        finalAkk += ' — ṭuppum šuˀˀur: ' + snippet.source_text.substring(0, 200);
+        finalEng += ' — Here is a text I found: "' + snippet.target_text.substring(0, 300) + '"';
+      }
+      const finalCuneiform = textToFakeCuneiform(finalAkk);
+      deliverResponse({ akk: finalAkk, eng: finalEng, cuneiform: finalCuneiform });
+    });
+  } else {
+    deliverResponse({ akk, eng, cuneiform });
   }
-
-  if (searchTerms.length === 0) {
-    // No meaningful keywords — do a random search
-    searchTerms.push('silver', 'king', 'seal', 'tablet');
-  }
-
-  setVoiceState('processing');
-  const statusEl = document.getElementById('voice-status');
-  statusEl.textContent = `Searching ancient texts for "${searchTerms[0]}"...`;
-
-  searchCorpus(searchTerms).then(result => {
-    if (result) {
-      // Build response from real corpus data
-      const akkText = truncateToSentence(result.source_text, 200);
-      const engText = truncateToSentence(result.target_text, 300);
-      const cuneiform = textToFakeCuneiform(akkText);
-      deliverResponse({ akk: akkText, eng: engText, cuneiform: cuneiform });
-    } else {
-      // API unreachable or no results — generic but varied fallback
-      const generic = [
-        { akk: 'awātka ašme', eng: 'I have heard your words', cuneiform: '𒀀𒉿𒀜𒅗 𒀸𒈨' },
-        { akk: 'ṭuppu annû šaṭir', eng: 'This tablet is written', cuneiform: '𒌅𒁍 𒀭𒉡 𒊮𒋾𒊑' },
-        { akk: 'šarrum dannum iqbi', eng: 'The mighty king has spoken', cuneiform: '𒊮𒊒𒌝 𒁕𒉡𒌝 𒅅𒁉' },
-      ];
-      deliverResponse(generic[Math.floor(Math.random() * generic.length)]);
-    }
-  });
 
   function deliverResponse(response) {
     updateCuneiformDisplay(response.cuneiform, response.akk);
