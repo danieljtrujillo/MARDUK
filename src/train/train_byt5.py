@@ -10,6 +10,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -101,23 +102,44 @@ def main() -> None:
     collator = DataCollatorForSeq2Seq(tokenizer, model=model, padding=True)
 
     # Metric computation
+    _log_file = output_dir / "train.log"
+
     def compute_metrics(eval_pred):
+        import time as _t
+        _t0 = _t.time()
         preds, labels = eval_pred
+
+        def _log(msg):
+            line = f"[compute_metrics +{_t.time()-_t0:.1f}s] {msg}"
+            print(line, flush=True)
+            with open(_log_file, "a") as f:
+                f.write(line + "\n")
+
+        _log(f"preds shape={preds.shape}, dtype={preds.dtype}")
         # Replace -100 in labels
         labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
         # Clip prediction IDs to valid ByT5 range (avoids chr() ValueError)
         max_id = tokenizer.vocab_size - 1
         preds = np.clip(preds, 0, max_id)
+        _log("decoding preds...")
         decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
+        _log("decoding labels...")
         decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+        _log("computing sacrebleu + chrf...")
         metrics = compute_generation_metrics(decoded_preds, decoded_labels)
         # Competition score = sqrt(BLEU * chrF++)
         bleu = max(metrics["sacrebleu"], 0.0)
         chrf = max(metrics["chrf"], 0.0)
         metrics["competition_score"] = float(np.sqrt(bleu * chrf))
+        _log(f"done => {metrics}")
         return metrics
 
     output_dir = ensure_dir(train_cfg["output_dir"])
+
+    # File logging for post-mortem diagnosis
+    _fh = logging.FileHandler(str(output_dir / "train.log"))
+    _fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    logging.getLogger().addHandler(_fh)
 
     training_args = Seq2SeqTrainingArguments(
         output_dir=str(output_dir),
@@ -184,7 +206,9 @@ def main() -> None:
     # Generate val predictions for error analysis
     logger.info("Generating val predictions...")
     pred_output = trainer.predict(val_ds)
-    preds = tokenizer.batch_decode(pred_output.predictions, skip_special_tokens=True)
+    max_id = tokenizer.vocab_size - 1
+    clipped_preds = np.clip(pred_output.predictions, 0, max_id)
+    preds = tokenizer.batch_decode(clipped_preds, skip_special_tokens=True)
     labels_clean = np.where(
         pred_output.label_ids != -100, pred_output.label_ids, tokenizer.pad_token_id
     )
