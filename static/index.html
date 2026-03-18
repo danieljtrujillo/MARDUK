@@ -1593,7 +1593,7 @@ function speakText(btn, text, lang) {
     processedText = akkadianToPhonetic(text);
     utterance.text = processedText;
     utterance.lang = 'en-US';
-    utterance.rate = 0.55;   // Slow, deliberate pace for ancient language
+    utterance.rate = 0.8;    // Deliberate but not sluggish
     utterance.pitch = 0.75;  // Deeper, more solemn tone
     utterance.volume = 1.0;
 
@@ -1608,7 +1608,7 @@ function speakText(btn, text, lang) {
   } else {
     utterance.text = processedText;
     utterance.lang = 'en-US';
-    utterance.rate = 0.9;
+    utterance.rate = 1.25;
     utterance.pitch = 1.0;
   }
 
@@ -2028,7 +2028,7 @@ function speakVoiceResponse(text, lang, callback) {
   if (lang === 'akkadian') {
     utterance.text = akkadianToPhonetic(text);
     utterance.lang = 'en-US';
-    utterance.rate = 0.55;
+    utterance.rate = 0.8;
     utterance.pitch = 0.75;
     const voices = speechSynthesis.getVoices();
     const preferred = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Google US English', 'Microsoft Mark'];
@@ -2039,7 +2039,7 @@ function speakVoiceResponse(text, lang, callback) {
   } else {
     utterance.text = text;
     utterance.lang = 'en-US';
-    utterance.rate = 0.9;
+    utterance.rate = 1.25;
     utterance.pitch = 1.0;
   }
 
