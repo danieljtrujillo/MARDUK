@@ -68,9 +68,10 @@ NUM_BEAMS = 5
 BATCH_SIZE = 4
 
 # MBR self-ensemble parameters
-MBR_SAMPLES = 20       # number of diverse candidates per input
+MBR_SAMPLES = 12       # number of diverse candidates per input (5 beam + 7 sampled)
 MBR_TEMPERATURE = 0.8  # sampling temperature for diversity
 MBR_TOP_P = 0.92       # nucleus sampling threshold
+MBR_SAMPLE_BATCH = 4   # generate samples in small batches to avoid OOM
 
 # %% [markdown]
 # ## 2. Preprocessing – Akkadian Normalization & Dual-View Packing
@@ -260,7 +261,7 @@ def chrf_score(hypothesis: str, reference: str,
     return score * 100  # Scale to 0-100 like sacrebleu
 
 
-def mbr_select(candidates: list[str]) -> tuple[str, float]:
+def mbr_select(candidates):
     """Select the MBR-optimal candidate: the one with highest average chrF++
     against all other candidates (consensus translation).
 
@@ -297,7 +298,7 @@ def mbr_select(candidates: list[str]) -> tuple[str, float]:
 
 
 @torch.no_grad()
-def generate_candidates(packed_source: str) -> list[str]:
+def generate_candidates(packed_source):
     """Generate diverse translation candidates for one input using
     beam search + sampling for MBR selection."""
     inputs = tokenizer(
@@ -322,36 +323,52 @@ def generate_candidates(packed_source: str) -> list[str]:
         )
         beam_texts = tokenizer.batch_decode(beam_out, skip_special_tokens=True)
         candidates.extend(beam_texts)
+        del beam_out
 
-        # 2) Diverse sampling — get stochastic candidates
+        # 2) Diverse sampling — get stochastic candidates in small batches
         n_samples = MBR_SAMPLES - NUM_BEAMS
-        if n_samples > 0:
+        remaining = n_samples
+        while remaining > 0:
+            batch_n = min(remaining, MBR_SAMPLE_BATCH)
             sample_out = model.generate(
                 **inputs,
                 max_new_tokens=TGT_MAX,
                 do_sample=True,
                 temperature=MBR_TEMPERATURE,
                 top_p=MBR_TOP_P,
-                num_return_sequences=n_samples,
+                num_return_sequences=batch_n,
             )
             sample_texts = tokenizer.batch_decode(sample_out, skip_special_tokens=True)
             candidates.extend(sample_texts)
+            del sample_out
+            remaining -= batch_n
 
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
     return candidates
 
 
 # Generate + MBR-select for each test example
-all_predictions: list[str] = []
+all_predictions = []
 for idx, packed in enumerate(tqdm(packed_sources, desc="MBR Translating")):
-    candidates = generate_candidates(packed)
-    best, score = mbr_select(candidates)
+    try:
+        candidates = generate_candidates(packed)
+        best, score = mbr_select(candidates)
+        print(f"  Example {idx}: {len(candidates)} cands, "
+              f"{len(set(c.strip() for c in candidates))} unique, "
+              f"MBR={score:.1f}")
+    except Exception as e:
+        # Fallback to simple beam search if MBR fails (e.g. OOM)
+        print(f"  Example {idx}: MBR failed ({e}), falling back to beam")
+        torch.cuda.empty_cache()
+        inputs = tokenizer(
+            [packed], max_length=SRC_MAX, truncation=True,
+            padding=True, return_tensors="pt"
+        ).to(device)
+        out = model.generate(**inputs, max_new_tokens=TGT_MAX,
+                             num_beams=NUM_BEAMS, early_stopping=True)
+        best = tokenizer.batch_decode(out, skip_special_tokens=True)[0]
     all_predictions.append(best)
-    print(f"  Example {idx}: {len(candidates)} candidates, "
-          f"{len(set(c.strip() for c in candidates))} unique, "
-          f"MBR score={score:.1f}")
-    # Show top-3 for sanity check
-    for j, c in enumerate(candidates[:3]):
-        print(f"    [{j}] {c[:120]}...")
 
 print(f"\nGenerated {len(all_predictions)} translations via MBR self-ensemble")
 
