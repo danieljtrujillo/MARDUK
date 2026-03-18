@@ -1,10 +1,10 @@
 # MARDUK – Akkadian → English Neural Translation
 # Competition: Deep Past Initiative – Machine Translation (Kaggle)
 #
-# This notebook loads a fine-tuned ByT5-base model (v3, Score=26.52)
+# This notebook loads a fine-tuned ByT5-base model (v5_detrunc, Score=41.22)
 # and generates translations for the test set.
 #
-# Model: google/byt5-base fine-tuned on 2,718 Akkadian-English pairs with TGT_MAX=1024
+# Model: google/byt5-base fine-tuned on 8,480 Akkadian-English pairs with TGT_MAX=256
 # Data source: theskateborg/marduk-model-download (Kaggle kernel output)
 # Architecture: Byte-level Seq2Seq with dual-view (raw + normalized) input packing
 
@@ -63,7 +63,7 @@ OUTPUT_CSV = Path("/kaggle/working/submission.csv")
 
 # Generation parameters (grid-searched optimal)
 SRC_MAX = 1024
-TGT_MAX = 1024
+TGT_MAX = 256
 NUM_BEAMS = 3
 LENGTH_PENALTY = 1.2
 NO_REPEAT_NGRAM = 20
