@@ -105,6 +105,9 @@ def main() -> None:
         preds, labels = eval_pred
         # Replace -100 in labels
         labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
+        # Clip prediction IDs to valid ByT5 range (avoids chr() ValueError)
+        max_id = tokenizer.vocab_size - 1
+        preds = np.clip(preds, 0, max_id)
         decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
         decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
         metrics = compute_generation_metrics(decoded_preds, decoded_labels)
