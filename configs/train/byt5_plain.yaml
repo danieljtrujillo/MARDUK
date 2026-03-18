@@ -1,0 +1,41 @@
+# Training config for ByT5 plain-format on clean data (1,561 rows, no augmented)
+# NVIDIA B200 (192 GB HBM3e) — aggressive batch sizes
+run_name: byt5_plain_v1
+seed: 17
+output_dir: outputs/runs/byt5_plain_v1
+
+# B200: can handle large batches
+per_device_train_batch_size: 32
+per_device_eval_batch_size: 64
+gradient_accumulation_steps: 2     # effective batch = 64
+
+# Clean data only (1,561 rows) — train longer to compensate for smaller dataset
+num_train_epochs: 30
+learning_rate: 2.0e-4
+weight_decay: 0.01
+warmup_ratio: 0.08
+lr_scheduler_type: cosine
+max_grad_norm: 1.0
+
+# Mixed precision
+bf16: true
+
+# Eval & save — smaller dataset → more frequent eval
+eval_strategy: steps
+eval_steps: 50
+save_strategy: steps
+save_steps: 50
+save_total_limit: 3
+load_best_model_at_end: true
+metric_for_best_model: competition_score
+greater_is_better: true
+
+# Generation during eval
+predict_with_generate: true
+
+# Logging
+logging_steps: 10
+report_to: none
+
+# Data
+fold: 0

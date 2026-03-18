@@ -34,14 +34,20 @@ from src.utils.seed import seed_everything
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--data-config", required=True)
-    p.add_argument("--view-config", required=True)
+    p.add_argument("--view-config", default=None,
+                   help="View config for dual-view format (optional for plain)")
     p.add_argument("--model-config", required=True)
     p.add_argument("--train-config", required=True)
+    p.add_argument("--prepared-csv", default=None,
+                   help="Override prepared CSV path (e.g. data/processed/train_prepared_plain.csv)")
     return p.parse_args()
 
 
-def load_splits(data_cfg: dict, fold: int) -> tuple[pd.DataFrame, pd.DataFrame]:
-    prepared = Path(data_cfg["paths"]["processed_dir"]) / "train_prepared.csv"
+def load_splits(data_cfg: dict, fold: int, prepared_csv: str | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if prepared_csv:
+        prepared = Path(prepared_csv)
+    else:
+        prepared = Path(data_cfg["paths"]["processed_dir"]) / "train_prepared.csv"
     if not prepared.exists():
         raise FileNotFoundError(
             f"Expected {prepared}. Run: python -m src.data.prepare "
@@ -93,7 +99,7 @@ def main() -> None:
     logger.info("Parameters: %.1fM total, %.1fM trainable", n_params / 1e6, n_trainable / 1e6)
 
     # Load data
-    train_df, val_df = load_splits(data_cfg, train_cfg["fold"])
+    train_df, val_df = load_splits(data_cfg, train_cfg["fold"], args.prepared_csv)
     logger.info("Train: %d, Val: %d", len(train_df), len(val_df))
 
     train_ds = build_dataset(train_df, tokenizer, src_max, tgt_max)
