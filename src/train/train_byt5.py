@@ -101,9 +101,7 @@ def main() -> None:
 
     collator = DataCollatorForSeq2Seq(tokenizer, model=model, padding=True)
 
-    # Metric computation
-    _log_file = output_dir / "train.log"
-
+    # Metric computation (note: _log_file is set after output_dir below)
     def compute_metrics(eval_pred):
         import time as _t
         _t0 = _t.time()
@@ -135,6 +133,7 @@ def main() -> None:
         return metrics
 
     output_dir = ensure_dir(train_cfg["output_dir"])
+    _log_file = output_dir / "train.log"
 
     # File logging for post-mortem diagnosis
     _fh = logging.FileHandler(str(output_dir / "train.log"))
