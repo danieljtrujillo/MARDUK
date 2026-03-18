@@ -733,16 +733,13 @@
     }
 
     /* Voice chat: optimize for mobile */
+    .voice-chat-container {
+      height: calc(100vh - 120px);
+      min-height: 300px;
+    }
     .voice-messages {
       max-height: none;
       min-height: 150px;
-    }
-    .cuneiform-text {
-      font-size: 1.6em;
-    }
-    .voice-record-btn {
-      width: 70px;
-      height: 70px;
     }
     .voice-settings {
       flex-direction: column;
@@ -769,8 +766,6 @@
     .logo { font-size: 16px; }
     .tab-btn { padding: 6px 10px; font-size: 11px; }
     .tab-content { padding: 8px; }
-    .voice-record-btn { width: 60px; height: 60px; }
-    .cuneiform-text { font-size: 1.3em; }
     .form-section-title { font-size: 11px; }
   }
 
@@ -803,17 +798,18 @@
     src: local('Noto Sans Cuneiform');
   }
   .voice-chat-container {
-    display: flex; flex-direction: column; height: 100%; gap: 12px;
+    display: flex; flex-direction: column; height: calc(100vh - 140px);
+    min-height: 400px;
   }
   .voice-header {
-    text-align: center; padding: 16px 0 8px;
+    text-align: center; padding: 8px 0 4px; flex-shrink: 0;
   }
   .voice-title {
-    font-size: 1.4em; font-weight: 700; color: var(--gold);
+    font-size: 1.2em; font-weight: 700; color: var(--gold);
     letter-spacing: 0.05em;
   }
   .voice-subtitle {
-    font-size: 0.82em; color: var(--text-muted); margin-top: 4px;
+    font-size: 0.78em; color: var(--text-muted); margin-top: 2px;
   }
   .cuneiform-glyph {
     font-family: 'Noto Sans Cuneiform', serif;
@@ -822,7 +818,7 @@
   .voice-messages {
     flex: 1; overflow-y: auto; padding: 8px 12px;
     display: flex; flex-direction: column; gap: 12px;
-    min-height: 120px; max-height: 320px;
+    min-height: 0;
     background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border);
   }
   .voice-msg {
@@ -858,37 +854,43 @@
   .msg-romanization {
     font-size: 0.78em; color: var(--text-muted); font-style: italic; margin-top: 2px;
   }
-  .cuneiform-display {
-    text-align: center; padding: 20px;
-    background: var(--bg-tertiary); border-radius: 10px;
-    border: 1px solid var(--border); min-height: 80px;
-    transition: all 0.3s ease;
-  }
-  .cuneiform-display.speaking {
-    border-color: var(--gold);
-    box-shadow: 0 0 20px rgba(201, 164, 78, 0.2);
-  }
-  .cuneiform-text {
-    font-family: 'Noto Sans Cuneiform', serif;
-    font-size: 2.2em; color: var(--gold); letter-spacing: 0.12em;
-    line-height: 1.6; word-break: break-word;
-  }
-  .cuneiform-romanization {
-    font-size: 0.85em; color: var(--text-muted); margin-top: 6px;
-    font-style: italic;
-  }
   .voice-controls {
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    padding: 12px 0;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; flex-shrink: 0;
+    background: var(--bg-secondary); border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .voice-text-input-row {
+    display: flex; gap: 8px; flex: 1;
+  }
+  .voice-text-input-row input {
+    flex: 1; background: var(--bg-input); border: 1px solid var(--border);
+    color: var(--text-primary); border-radius: 20px; padding: 10px 16px;
+    font-size: 0.95em; font-family: var(--font-sans);
+    outline: none;
+  }
+  .voice-text-input-row input:focus {
+    border-color: var(--gold);
+  }
+  .voice-text-input-row input::placeholder {
+    color: var(--text-muted);
+  }
+  .voice-text-input-row button {
+    background: var(--gold); color: var(--bg-primary); border: none;
+    border-radius: 50%; width: 40px; height: 40px; font-weight: 600;
+    cursor: pointer; font-family: var(--font-sans); font-size: 1.1em;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .voice-text-input-row button:hover {
+    opacity: 0.85;
   }
   .voice-record-btn {
-    width: 80px; height: 80px; border-radius: 50%;
-    border: 3px solid var(--gold); background: var(--bg-card);
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 2px solid var(--gold); background: var(--bg-card);
     color: var(--gold); cursor: pointer;
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; gap: 4px;
-    transition: all 0.2s ease; font-size: 0.65em;
-    font-family: var(--font-sans);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s ease; flex-shrink: 0;
   }
   .voice-record-btn:hover {
     background: var(--bg-hover); transform: scale(1.05);
@@ -910,32 +912,7 @@
     50% { opacity: 0.5; }
   }
   .voice-status {
-    font-size: 0.8em; color: var(--text-muted);
-  }
-  .voice-text-input-row {
-    display: flex; gap: 8px; width: 100%; max-width: 500px;
-    padding: 0 12px;
-  }
-  .voice-text-input-row input {
-    flex: 1; background: var(--bg-input); border: 1px solid var(--border);
-    color: var(--text-primary); border-radius: 8px; padding: 10px 14px;
-    font-size: 0.95em; font-family: var(--font-sans);
-    outline: none;
-  }
-  .voice-text-input-row input:focus {
-    border-color: var(--gold);
-  }
-  .voice-text-input-row input::placeholder {
-    color: var(--text-muted);
-  }
-  .voice-text-input-row button {
-    background: var(--gold); color: var(--bg-primary); border: none;
-    border-radius: 8px; padding: 10px 18px; font-weight: 600;
-    cursor: pointer; font-family: var(--font-sans); font-size: 0.9em;
-    white-space: nowrap;
-  }
-  .voice-text-input-row button:hover {
-    opacity: 0.85;
+    font-size: 0.75em; color: var(--text-muted); flex-shrink: 0;
   }
   .voice-settings {
     display: flex; gap: 16px; padding: 8px 12px;
@@ -1324,27 +1301,20 @@
               </div>
             </div>
 
-            <!-- Cuneiform Display (large, animated) -->
-            <div class="cuneiform-display" id="cuneiform-display">
-              <div class="cuneiform-text" id="cuneiform-text">𒀀𒈾𒆪</div>
-              <div class="cuneiform-romanization" id="cuneiform-roman"></div>
-            </div>
-
-            <!-- Controls -->
+            <!-- Bottom Input Bar -->
             <div class="voice-controls">
-              <button class="voice-record-btn" id="voice-record-btn" onclick="toggleVoiceChat()">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <div class="voice-text-input-row">
+                <input type="text" id="voice-text-input" placeholder="Type a message..." autocomplete="off">
+                <button onclick="sendTypedVoiceMessage()" title="Send">▶</button>
+              </div>
+              <button class="voice-record-btn" id="voice-record-btn" onclick="toggleVoiceChat()" title="Tap to speak">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
                   <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
                 </svg>
-                <span id="voice-btn-label">Hold to Speak</span>
               </button>
               <div class="voice-status" id="voice-status">Ready</div>
-              <div class="voice-text-input-row">
-                <input type="text" id="voice-text-input" placeholder="Or type your message here..." autocomplete="off">
-                <button onclick="sendTypedVoiceMessage()">Send</button>
-              </div>
             </div>
 
             <!-- Settings -->
@@ -1829,26 +1799,25 @@ function speakText(btn, text, lang) {
     utterance.rate = 0.8;    // Deliberate but not sluggish
     utterance.pitch = 0.75;  // Deeper, more solemn tone
     utterance.volume = 1.0;
-
-    // Try to select a deeper male voice for gravitas
-    const voices = speechSynthesis.getVoices();
-    const preferredVoices = ['Google UK English Male', 'Microsoft David', 
-                             'Daniel', 'Google US English', 'Microsoft Mark'];
-    for (const name of preferredVoices) {
-      const v = voices.find(v => v.name.includes(name));
-      if (v) { utterance.voice = v; break; }
-    }
   } else {
     utterance.text = processedText;
     utterance.lang = 'en-US';
     utterance.rate = 1.25;
     utterance.pitch = 0.7;
-    const voices2 = speechSynthesis.getVoices();
-    const maleVoices2 = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Microsoft Mark', 'Google US English'];
-    for (const name of maleVoices2) {
-      const v = voices2.find(v => v.name.includes(name));
-      if (v) { utterance.voice = v; break; }
-    }
+  }
+
+  // Find a male voice (works on desktop + mobile)
+  const allVoices = speechSynthesis.getVoices();
+  const maleNames = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Microsoft Mark',
+                     'Google US English', 'Aaron', 'Fred', 'Ralph', 'Alex', 'Tom', 'Lee',
+                     'Rishi', 'Oliver', 'Malcolm', 'Eddy', 'Reed', 'Rocko'];
+  for (const name of maleNames) {
+    const v = allVoices.find(v => v.name.includes(name));
+    if (v) { utterance.voice = v; break; }
+  }
+  if (!utterance.voice) {
+    const maleByName = allVoices.find(v => /\bmale\b/i.test(v.name));
+    if (maleByName) utterance.voice = maleByName;
   }
 
   btn.classList.add('playing');
@@ -2295,86 +2264,72 @@ function addVoiceMessage(type, text, cuneiform, romanization, animate) {
   }
 }
 
-function updateCuneiformDisplay(cuneiform, roman) {
-  const textEl = document.getElementById('cuneiform-text');
-  const romanEl = document.getElementById('cuneiform-roman');
-  // Typewriter the big cuneiform display too
-  typewriterEffect(textEl, cuneiform || '𒀀𒈾𒆪', 100, () => {
-    typewriterEffect(romanEl, roman || '', 18, null);
-  });
-}
-
 function speakVoiceResponse(text, lang, callback) {
   const utterance = new SpeechSynthesisUtterance();
-  const display = document.getElementById('cuneiform-display');
+
+  const voices = speechSynthesis.getVoices();
+  // Find male voice: check name for male keywords or known male voice names
+  function findMaleVoice(voiceList) {
+    const preferred = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Microsoft Mark',
+                       'Google US English', 'Aaron', 'Fred', 'Ralph', 'Alex', 'Tom', 'Lee',
+                       'Rishi', 'Oliver', 'Malcolm', 'Eddy', 'Reed', 'Rocko'];
+    for (const name of preferred) {
+      const v = voiceList.find(v => v.name.includes(name));
+      if (v) return v;
+    }
+    // Fallback: look for any voice with 'Male' in name
+    const maleByName = voiceList.find(v => /\bmale\b/i.test(v.name));
+    if (maleByName) return maleByName;
+    // Last resort: pick lowest-pitch english voice (just return first en voice)
+    return voiceList.find(v => v.lang && v.lang.startsWith('en')) || null;
+  }
+
+  const maleVoice = findMaleVoice(voices);
 
   if (lang === 'akkadian') {
     utterance.text = akkadianToPhonetic(text);
     utterance.lang = 'en-US';
     utterance.rate = 0.8;
     utterance.pitch = 0.75;
-    const voices = speechSynthesis.getVoices();
-    const preferred = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Google US English', 'Microsoft Mark'];
-    for (const name of preferred) {
-      const v = voices.find(v => v.name.includes(name));
-      if (v) { utterance.voice = v; break; }
-    }
+    if (maleVoice) utterance.voice = maleVoice;
   } else {
     utterance.text = text;
     utterance.lang = 'en-US';
     utterance.rate = 1.25;
     utterance.pitch = 0.7;
-    const voices = speechSynthesis.getVoices();
-    const maleVoices = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Microsoft Mark', 'Google US English'];
-    for (const name of maleVoices) {
-      const v = voices.find(v => v.name.includes(name));
-      if (v) { utterance.voice = v; break; }
-    }
+    if (maleVoice) utterance.voice = maleVoice;
   }
 
-  display.classList.add('speaking');
-  utterance.onend = () => {
-    display.classList.remove('speaking');
-    if (callback) callback();
-  };
-  utterance.onerror = () => {
-    display.classList.remove('speaking');
-    if (callback) callback();
-  };
+  utterance.onend = () => { if (callback) callback(); };
+  utterance.onerror = () => { if (callback) callback(); };
 
   speechSynthesis.speak(utterance);
 }
 
 function setVoiceState(state) {
   const btn = document.getElementById('voice-record-btn');
-  const label = document.getElementById('voice-btn-label');
   const status = document.getElementById('voice-status');
 
   btn.classList.remove('recording', 'processing');
 
   switch (state) {
     case 'ready':
-      label.textContent = 'Tap to Speak';
       status.textContent = 'Ready';
       break;
     case 'recording':
       btn.classList.add('recording');
-      label.textContent = 'Listening...';
-      status.textContent = '🎙 Speak now...';
+      status.textContent = '🎙 Listening...';
       break;
     case 'processing':
       btn.classList.add('processing');
-      label.textContent = 'Thinking...';
-      status.textContent = 'Processing...';
+      status.textContent = 'Thinking...';
       break;
     case 'speaking':
       btn.classList.add('processing');
-      label.textContent = 'Speaking...';
-      status.textContent = '🔊 Akkadian response...';
+      status.textContent = '🔊 Speaking...';
       break;
     case 'error':
-      label.textContent = 'Tap to Speak';
-      status.textContent = '⚠ Microphone access required';
+      status.textContent = '⚠ Mic unavailable — type instead';
       break;
   }
 }
@@ -2461,12 +2416,18 @@ function sendTypedVoiceMessage() {
   handleVoiceInput(text);
 }
 
-// Allow Enter key to send
+// Allow Enter key to send + hide mic if speech recognition unavailable
 document.addEventListener('DOMContentLoaded', () => {
   const inp = document.getElementById('voice-text-input');
   if (inp) inp.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); sendTypedVoiceMessage(); }
   });
+  // Hide mic button if speech recognition not supported (e.g. iOS Safari)
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    const micBtn = document.getElementById('voice-record-btn');
+    if (micBtn) micBtn.style.display = 'none';
+  }
 });
 
 function handleVoiceInput(transcript) {
@@ -2499,7 +2460,6 @@ function handleVoiceInput(transcript) {
   }
 
   function deliverResponse(response) {
-    updateCuneiformDisplay(response.cuneiform, response.akk);
     addVoiceMessage('bot', response.eng, response.cuneiform, response.akk, true);
 
     const mode = document.getElementById('voice-response-mode').value;
