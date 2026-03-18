@@ -63,7 +63,7 @@ OUTPUT_CSV = Path("/kaggle/working/submission.csv")
 
 # Generation parameters — match training eval config that scored val=43.26
 SRC_MAX = 1024
-TGT_MAX = 256
+TGT_MAX = 512  # bumped from 256 — training targets often exceed 256 bytes
 NUM_BEAMS = 5
 BATCH_SIZE = 4
 
@@ -380,8 +380,23 @@ _REPEAT_WORD_RE = re.compile(r"\b(\w+)(?:\s+\1\b)+")
 _REPEAT_PUNCT_RE = re.compile(r"([.,])\1+")
 _PUNCT_SPACE_RE = re.compile(r"\s+([.,:])") 
 _STRAY_MARKS_RE = re.compile(r'<<[^>]*>>|<(?!gap\b)[^>]*>')
-_MONTH_RE = re.compile(r"\bMonth\s+(XII|XI|X|IX|VIII|VII|VI|V|IV|III|II|I)\b", re.I)
-_ROMAN2INT = {"I":1,"II":2,"III":3,"IV":4,"V":5,"VI":6,"VII":7,"VIII":8,"IX":9,"X":10,"XI":11,"XII":12}
+
+# ── Reverse mappings: model outputs cleaned format, references use raw format ──
+# The training pipeline converted decimal→unicode fractions and Roman→int months,
+# so the model outputs ⅓/⅔/½ and "Month 12". Competition references use 0.3333 and "Month XII".
+_INT2ROMAN = {1:"I",2:"II",3:"III",4:"IV",5:"V",6:"VI",
+              7:"VII",8:"VIII",9:"IX",10:"X",11:"XI",12:"XII"}
+_INT_MONTH_RE = re.compile(r"\b([Mm]onth)\s+(\d{1,2})\b")
+
+# Unicode fraction → decimal (reverse of training clean_translation)
+_FRAC_TO_DECIMAL = {
+    "⅓": "0.3333", "⅔": "0.6666", "½": "0.5",
+    "¼": "0.25", "¾": "0.75",
+    "⅙": "0.1666", "⅚": "0.8333", "⅝": "0.625",
+}
+# Also handle e.g. "1⅓" → "1.3333", "2⅔" → "2.6666"
+_NUM_FRAC_RE = re.compile(r"(\d+)([⅓⅔½¼¾⅙⅚⅝])")
+_STANDALONE_FRAC_RE = re.compile(r"(?<!\d)([⅓⅔½¼¾⅙⅚⅝])")
 
 
 def postprocess_translation(text: str) -> str:
@@ -406,8 +421,31 @@ def postprocess_translation(text: str) -> str:
     # Stray markup
     text = _STRAY_MARKS_RE.sub("", text)
 
-    # Month numerals
-    text = _MONTH_RE.sub(lambda m: f"Month {_ROMAN2INT.get(m.group(1).upper(), m.group(1))}", text)
+    # ── Reverse training clean_translation() to match raw reference format ──
+    # Integer months → Roman numerals (model outputs "Month 12", refs use "Month XII")
+    def _int_to_roman_month(m):
+        prefix = m.group(1)
+        num = int(m.group(2))
+        roman = _INT2ROMAN.get(num, str(num))
+        return f"{prefix} {roman}"
+    text = _INT_MONTH_RE.sub(_int_to_roman_month, text)
+
+    # Unicode fractions → decimal (model outputs ⅓, refs use 0.3333)
+    # First handle "1⅓" → "1.3333" patterns
+    def _num_frac_to_decimal(m):
+        whole = m.group(1)
+        frac_char = m.group(2)
+        dec = _FRAC_TO_DECIMAL.get(frac_char, "")
+        if dec and "." in dec:
+            dec_part = dec.split(".")[1]
+            return f"{whole}.{dec_part}"
+        return m.group(0)
+    text = _NUM_FRAC_RE.sub(_num_frac_to_decimal, text)
+
+    # Then standalone fractions: "⅓" → "0.3333"
+    def _standalone_frac_to_decimal(m):
+        return _FRAC_TO_DECIMAL.get(m.group(1), m.group(1))
+    text = _STANDALONE_FRAC_RE.sub(_standalone_frac_to_decimal, text)
 
     # Strip forbidden chars while preserving <gap>
     text = text.replace("<gap>", "\x00GAP\x00")
