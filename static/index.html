@@ -681,7 +681,7 @@
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
               <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
-                <div class="tt" style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Best Score
+                <div class="tt" style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Your Score
                   <span class="tt-text">The geometric mean of BLEU and chrF++: √(BLEU × chrF++). This is the official Kaggle ranking metric for the competition.</span>
                 </div>
                 <div id="score-best" style="font-size:36px;font-weight:700;color:var(--gold);font-family:var(--font-mono);margin:4px 0;">—</div>
@@ -706,10 +706,16 @@
           <div class="form-section">
             <div class="form-section-title">
               <span class="tt">Leaderboard Context
-                <span class="tt-text">Compares your best score against the current Kaggle leaderboard. Rankings estimated from the public leaderboard distribution of ~3,023 teams.</span>
+                <span class="tt-text">Compares your score against the current Kaggle leaderboard. Rankings estimated from the public leaderboard distribution of 3,025 teams.</span>
               </span>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+              <div style="background:var(--bg-tertiary);border:1px solid var(--gold);border-radius:6px;padding:10px;text-align:center;">
+                <div class="tt" style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Rank (Est.)
+                  <span class="tt-text">Estimated rank on the public leaderboard based on your best validation score and the distribution of 3,025 teams.</span>
+                </div>
+                <div id="score-rank" style="font-size:22px;font-weight:700;color:var(--gold);font-family:var(--font-mono);">— / 3,025</div>
+              </div>
               <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
                 <div class="tt" style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Leader
                   <span class="tt-text">Current #1 on the public leaderboard (KE WU). The top score across all competing teams.</span>
@@ -730,7 +736,7 @@
               </div>
               <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
                 <div class="tt" style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Gap to Prize
-                  <span class="tt-text">Points difference between your best score and the prize floor (39.6). Negative = still below prize range.</span>
+                  <span class="tt-text">Points difference between your score and the prize floor (39.6). Negative = still below prize range.</span>
                 </div>
                 <div id="score-gap" style="font-size:22px;font-weight:700;color:var(--error);font-family:var(--font-mono);">—</div>
               </div>
@@ -1054,16 +1060,16 @@ function renderScoreDistribution(yourScore) {
       <div class="dist-bar-track">
         <div class="dist-bar-fill" style="width:${pct}%;background:${barColor};">${barLabel}</div>
       </div>
-      <span class="dist-bar-score" title="~#${e.rank.toLocaleString()} / 3,023 — ${e.tier}">#${e.rank.toLocaleString()}</span>
+      <span class="dist-bar-score" title="~#${e.rank.toLocaleString()} / 3,025 — ${e.tier}">#${e.rank.toLocaleString()}</span>
     </div>`;
   });
   container.innerHTML = html;
 }
 
 function estimateRank(score) {
-  const pts = [[40.61,1],[39.63,6],[38.44,30],[36.41,302],[33.8,756],[32.5,1512],[23.3,2267],[7.9,2721],[0,3023]];
+  const pts = [[40.61,1],[39.63,6],[38.44,30],[36.41,302],[33.8,756],[32.5,1512],[23.3,2267],[7.9,2721],[0,3025]];
   if (score >= pts[0][0]) return 1;
-  if (score <= 0) return 3023;
+  if (score <= 0) return 3025;
   for (let i = 0; i < pts.length - 1; i++) {
     const [s1,r1] = pts[i], [s2,r2] = pts[i+1];
     if (score <= s1 && score >= s2) {
@@ -1071,7 +1077,7 @@ function estimateRank(score) {
       return Math.round(r1 + t * (r2 - r1));
     }
   }
-  return 2951;
+  return 3025;
 }
 
 function estimateTier(rank) {
@@ -1282,29 +1288,133 @@ function escapeJs(s) {
   return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
 }
 
-// ── TTS (Text-to-Speech) ──
+// ── TTS (Text-to-Speech) with Akkadian IPA Phoneme Engine ──
 let currentUtterance = null;
+
+// ── Akkadian → IPA Phoneme Mapping ──
+// Based on standard Assyriological pronunciation conventions
+const AKK_IPA_MAP = {
+  // Emphatic/special consonants
+  'š': 'ʃ',   // shin
+  'ṣ': 'ts',  // emphatic s (simplified for TTS)
+  'ṭ': 't',   // emphatic t
+  'ḫ': 'x',   // voiceless velar fricative (German "ch")
+  'ḥ': 'ħ',   // pharyngeal fricative
+  'ʾ': 'ʔ',   // glottal stop
+  'ˀ': 'ʔ',
+  'ʿ': 'ʕ',   // pharyngeal approximant
+
+  // Vowels with diacritics (long vowels)
+  'ā': 'aː', 'ē': 'eː', 'ī': 'iː', 'ū': 'uː',
+  // Vowels with accent marks (quality indicators in transliteration)
+  'á': 'a', 'à': 'a', 'é': 'e', 'è': 'e',
+  'í': 'i', 'ì': 'i', 'ú': 'u', 'ù': 'u',
+};
+
+// Determinatives → pronunciation hints (read as Akkadian, not Sumerian)
+const DETERMINATIVE_MAP = {
+  '{d}': '',      // divine name marker — silent
+  '{f}': '',      // feminine name marker — silent
+  '{ki}': '',     // place name marker — silent
+  '{m}': '',      // masculine name marker — silent
+  '{giš}': '',    // wood/tree — silent
+  '{kuš}': '',    // leather — silent
+  '{tug}': '',    // textile — silent
+  '{urudu}': '',  // copper — silent
+};
+
+// Common Sumerograms → Akkadian pronunciation
+const SUMEROGRAM_PRON = {
+  'DINGIR': 'ilum',
+  'LUGAL': 'sharrum',
+  'DUMU': 'mārum',
+  'DAM': 'ashshatum',
+  'É': 'bītum',
+  'É.GAL': 'ēkallum',
+  'KÙ.BABBAR': 'kaspum',
+  'KÙ.AN': 'amūtum',
+  'GÍN': 'shiqlum',
+  'AN.NA': 'annakum',
+  'ANŠE': 'imērum',
+  'TÚG': 'ṣubātum',
+  'ITU': 'waraḫ',
+  'ITU.KAM': 'waraḫ',
+  'KIŠIB': 'kunukkum',
+  'MAN': 'puzur',
+  'IM': 'ṭuppum',
+};
+
+function akkadianToPhonetic(text) {
+  // Remove determinatives
+  for (const [det, pron] of Object.entries(DETERMINATIVE_MAP)) {
+    text = text.replaceAll(det, pron);
+  }
+
+  // Replace Sumerograms with Akkadian readings (longest match first)
+  const sortedLogos = Object.entries(SUMEROGRAM_PRON)
+    .sort((a, b) => b[0].length - a[0].length);
+  for (const [logo, pron] of sortedLogos) {
+    text = text.replaceAll(logo, pron);
+  }
+
+  // Remove line numbers
+  text = text.replace(/^\s*\d+['.]*[.)]\s*/gm, '');
+
+  // Convert special characters to IPA-adjacent pronunciation
+  let result = '';
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (AKK_IPA_MAP[ch]) {
+      result += AKK_IPA_MAP[ch];
+    } else {
+      result += ch;
+    }
+  }
+
+  // Clean up: remove subscript/superscript numbers (sign disambiguation)
+  result = result.replace(/[₀-₉⁰-⁹]/g, '');
+  // Remove remaining brackets and special markers
+  result = result.replace(/[{}\[\]<>()«»]/g, '');
+  // Normalize whitespace and hyphens (syllable separators → spaces)
+  result = result.replace(/-/g, '');  // Merge syllables naturally
+  result = result.replace(/\s+/g, ' ').trim();
+
+  return result;
+}
 
 function speakText(btn, text, lang) {
   // Stop any current speech
   if (speechSynthesis.speaking) {
     speechSynthesis.cancel();
     document.querySelectorAll('.tts-btn.playing').forEach(b => b.classList.remove('playing'));
-    // If clicking the same button, just stop
     if (btn.classList.contains('playing')) {
       btn.classList.remove('playing');
       return;
     }
   }
 
-  const utterance = new SpeechSynthesisUtterance(text);
-  // For Akkadian transliterations, use a slower rate with a neutral voice
-  // Akkadian is not a supported language, so we use English voice with slow rate
+  let processedText = text;
+  const utterance = new SpeechSynthesisUtterance();
+
   if (lang === 'akkadian') {
+    // Convert transliteration to phonetic approximation
+    processedText = akkadianToPhonetic(text);
+    utterance.text = processedText;
     utterance.lang = 'en-US';
-    utterance.rate = 0.7;  // Slower for reading transliterations
-    utterance.pitch = 0.9;
+    utterance.rate = 0.55;   // Slow, deliberate pace for ancient language
+    utterance.pitch = 0.75;  // Deeper, more solemn tone
+    utterance.volume = 1.0;
+
+    // Try to select a deeper male voice for gravitas
+    const voices = speechSynthesis.getVoices();
+    const preferredVoices = ['Google UK English Male', 'Microsoft David', 
+                             'Daniel', 'Google US English', 'Microsoft Mark'];
+    for (const name of preferredVoices) {
+      const v = voices.find(v => v.name.includes(name));
+      if (v) { utterance.voice = v; break; }
+    }
   } else {
+    utterance.text = processedText;
     utterance.lang = 'en-US';
     utterance.rate = 0.9;
     utterance.pitch = 1.0;
@@ -1316,6 +1426,12 @@ function speakText(btn, text, lang) {
 
   currentUtterance = utterance;
   speechSynthesis.speak(utterance);
+}
+
+// Preload voices (needed for some browsers)
+if (typeof speechSynthesis !== 'undefined') {
+  speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
 }
 
 // ── API calls ──
@@ -1501,6 +1617,8 @@ async function fetchMetrics() {
       const gapEl = document.getElementById('score-gap');
       gapEl.textContent = (gap > 0 ? '-' : '+') + Math.abs(gap).toFixed(1);
       gapEl.style.color = gap > 0 ? 'var(--error)' : 'var(--success)';
+      const rank = estimateRank(comp);
+      document.getElementById('score-rank').innerHTML = '#' + rank.toLocaleString() + ' <span style="color:var(--text-muted);font-size:16px;">/ 3,025</span>';
       renderScoreDistribution(comp);
     }
     if (bleu !== undefined) {
