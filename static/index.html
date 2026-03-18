@@ -1285,7 +1285,7 @@
             <div class="voice-header">
               <div class="voice-title">
                 <span class="cuneiform-glyph">𒀭</span>
-                Voice of Marduk
+                Mouth of Marduk
                 <span class="cuneiform-glyph">𒈗</span>
               </div>
               <div class="voice-subtitle">Address Marduk through his scribe — Speak English — Hear Akkadian</div>
@@ -1813,7 +1813,13 @@ function speakText(btn, text, lang) {
     utterance.text = processedText;
     utterance.lang = 'en-US';
     utterance.rate = 1.25;
-    utterance.pitch = 1.0;
+    utterance.pitch = 0.7;
+    const voices2 = speechSynthesis.getVoices();
+    const maleVoices2 = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Microsoft Mark', 'Google US English'];
+    for (const name of maleVoices2) {
+      const v = voices2.find(v => v.name.includes(name));
+      if (v) { utterance.voice = v; break; }
+    }
   }
 
   btn.classList.add('playing');
@@ -2288,7 +2294,13 @@ function speakVoiceResponse(text, lang, callback) {
     utterance.text = text;
     utterance.lang = 'en-US';
     utterance.rate = 1.25;
-    utterance.pitch = 1.0;
+    utterance.pitch = 0.7;
+    const voices = speechSynthesis.getVoices();
+    const maleVoices = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Microsoft Mark', 'Google US English'];
+    for (const name of maleVoices) {
+      const v = voices.find(v => v.name.includes(name));
+      if (v) { utterance.voice = v; break; }
+    }
   }
 
   display.classList.add('speaking');
