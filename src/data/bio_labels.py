@@ -71,7 +71,7 @@ _NUMBER_RE = re.compile(r"\b\d+(?:[.,]\d+)?\b")
 
 # Damage markers in transliteration
 _DAMAGE_CHARS = set("[]?")
-_DAMAGE_TOKENS = {"<gap>", "<big_gap>"}
+_DAMAGE_TOKENS = {"<gap>"}
 
 
 def generate_bio_labels(source_text: str, n_bytes: int) -> Dict[str, List[int]]:

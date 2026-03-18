@@ -57,6 +57,7 @@ class ProcessManager:
         self.live_train_metrics: dict = {}   # latest training step metrics
         self.live_eval_metrics: dict = {}    # latest eval metrics
         self.best_live_score: float = 0.0    # best competition_score seen live
+        self._step_timestamps: list[tuple[int, float]] = []  # (step, time) for non-linear ETA
 
     @staticmethod
     def _parse_time_str(s: str) -> int:
@@ -69,22 +70,64 @@ class ProcessManager:
             return parts[0] * 60 + parts[1]
         return parts[0]
 
+    @staticmethod
+    def _format_seconds(sec: int) -> str:
+        """Format seconds as HH:MM:SS or MM:SS."""
+        if sec < 0:
+            sec = 0
+        h, rem = divmod(sec, 3600)
+        m, s = divmod(rem, 60)
+        if h > 0:
+            return f"{h}:{m:02d}:{s:02d}"
+        return f"{m}:{s:02d}"
+
+    def _estimate_nonlinear_eta(self, step: int, total: int) -> int:
+        """Estimate remaining seconds using recent step rate (accounts for slowdown)."""
+        now = time.time()
+        self._step_timestamps.append((step, now))
+        # Keep last 20 data points for smoothing
+        if len(self._step_timestamps) > 20:
+            self._step_timestamps = self._step_timestamps[-20:]
+        if len(self._step_timestamps) < 2 or step >= total:
+            return 0
+        # Use weighted average: recent steps count more
+        recent = self._step_timestamps[-min(10, len(self._step_timestamps)):]
+        d_steps = recent[-1][0] - recent[0][0]
+        d_time = recent[-1][1] - recent[0][1]
+        if d_steps <= 0 or d_time <= 0:
+            return 0
+        recent_rate = d_time / d_steps  # seconds per step (recent window)
+        remaining_steps = total - step
+        return int(remaining_steps * recent_rate)
+
     def _parse_progress_from_log(self, text: str):
         """Extract tqdm progress info from log lines."""
         m = _TQDM_RE.search(text)
         if not m:
             return
         pct, step, total, elapsed_s, remaining_s = m.groups()
+        step_int, total_int = int(step), int(total)
         elapsed_sec = self._parse_time_str(elapsed_s)
-        remaining_sec = self._parse_time_str(remaining_s)
+        tqdm_eta_sec = self._parse_time_str(remaining_s)
+        # Non-linear ETA based on recent step rate
+        nl_eta_sec = self._estimate_nonlinear_eta(step_int, total_int)
+        # Use the non-linear estimate if we have enough data, else fall back to tqdm
+        if nl_eta_sec > 0 and len(self._step_timestamps) >= 3:
+            eta_sec = nl_eta_sec
+            eta_str = self._format_seconds(eta_sec)
+        else:
+            eta_sec = tqdm_eta_sec
+            eta_str = remaining_s
         self.progress = {
             "pct": int(pct),
-            "step": int(step),
-            "total": int(total),
+            "step": step_int,
+            "total": total_int,
             "elapsed": elapsed_s,
             "elapsed_sec": elapsed_sec,
-            "eta": remaining_s,
-            "eta_sec": remaining_sec,
+            "eta": eta_str,
+            "eta_sec": eta_sec,
+            "tqdm_eta": remaining_s,
+            "tqdm_eta_sec": tqdm_eta_sec,
         }
 
     def _parse_metrics_from_log(self, text: str):
@@ -140,6 +183,7 @@ class ProcessManager:
         self.live_train_metrics.clear()
         self.live_eval_metrics.clear()
         self.best_live_score = 0.0
+        self._step_timestamps.clear()
         await self.broadcast({"type": "started", "task": task_name})
 
         try:
@@ -421,6 +465,39 @@ def _build_command(task: str, args: dict) -> list[str] | None:
         user_cmd = args.get("cmd", "echo 'No command provided'")
         return ["bash", "-c", user_cmd]
     return None
+
+
+# ---------------------------------------------------------------------------
+# Training data viewer endpoint
+# ---------------------------------------------------------------------------
+import csv as _csv
+
+@app.get("/api/training-data")
+async def api_training_data(offset: int = 0, limit: int = 50, search: str = ""):
+    """Return paginated training data rows for the Texts viewer."""
+    csv_path = ROOT / "data" / "processed" / "train_prepared.csv"
+    if not csv_path.exists():
+        return JSONResponse({"error": "No training data found"}, status_code=404)
+    rows = []
+    total = 0
+    with open(csv_path, "r", encoding="utf-8") as f:
+        reader = _csv.DictReader(f)
+        all_rows = []
+        for row in reader:
+            if search:
+                search_lower = search.lower()
+                if (search_lower not in row.get("source_text", "").lower()
+                        and search_lower not in row.get("target_text", "").lower()):
+                    continue
+            all_rows.append({
+                "source_text": row.get("source_text", ""),
+                "target_text": row.get("target_text", ""),
+                "text_id": row.get("text_id", ""),
+                "data_source": row.get("data_source", ""),
+            })
+        total = len(all_rows)
+        rows = all_rows[offset:offset + limit]
+    return {"rows": rows, "total": total, "offset": offset, "limit": limit}
 
 
 # ---------------------------------------------------------------------------

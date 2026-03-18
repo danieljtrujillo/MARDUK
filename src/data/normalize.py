@@ -33,13 +33,9 @@ SUPERSCRIPT_MAP = str.maketrans(
     "0123456789",
 )
 
-# Accented vowel → numbered form (canonical transliteration)
-VOWEL_MAP = {
-    "\u00e1": "a2", "\u00e0": "a3",   # á → a2, à → a3
-    "\u00e9": "e2", "\u00e8": "e3",   # é → e2, è → e3
-    "\u00ed": "i2", "\u00ec": "i3",   # í → i2, ì → i3
-    "\u00fa": "u2", "\u00f9": "u3",   # ú → u2, ù → u3
-}
+# NOTE: We intentionally preserve diacritics (á à é è í ì ú ù) in transliterations.
+# The competition test data uses diacritics, NOT numbered forms (a2/a3).
+# Converting them would cause format mismatch and severe score loss.
 
 
 def normalize_akkadian_chars(text: str) -> str:
@@ -47,8 +43,7 @@ def normalize_akkadian_chars(text: str) -> str:
     text = text.translate(AKKADIAN_CHAR_MAP)
     text = text.translate(SUBSCRIPT_MAP)
     text = text.translate(SUPERSCRIPT_MAP)
-    for src, dst in VOWEL_MAP.items():
-        text = text.replace(src, dst)
+    # Diacritics (á à é è í ì ú ù) are preserved — test data uses them
     return text
 
 
@@ -66,13 +61,20 @@ def normalize_scribal_notations(text: str) -> str:
     # Remove erroneous sign brackets: <<text>> → text  (before single < >)
     text = re.sub(r"<<([^>]*)>>", r"\1", text)
     # Remove scribal insertion brackets but keep content: <text> → text
-    # Exclude our special tags <gap>, <big_gap>, <raw>, <norm>, etc.
-    text = re.sub(r"<(?!/?(?:gap|big_gap|raw|norm|gloss)\b)([^>]*)>", r"\1", text)
-    # Normalize breaks: [x] → <gap>,  [... ...] or [...] or … → <big_gap>
+    # Exclude our special tags <gap>, <raw>, <norm>, etc.
+    text = re.sub(r"<(?!/?(?:gap|raw|norm|gloss)\b)([^>]*)>", r"\1", text)
+    # Normalize ALL breaks to single <gap> (no <big_gap> per v3 rules)
     text = re.sub(r"\[x\]", "<gap>", text)
-    text = re.sub(r"\[\.\.\.\s*\.\.\.\]", "<big_gap>", text)
-    text = re.sub(r"\[\.\.\.\]", "<big_gap>", text)
-    text = re.sub(r"\u2026+", "<big_gap>", text)  # …
+    text = re.sub(r"\[\.\.\.\s*\.\.\.\]", "<gap>", text)
+    text = re.sub(r"\[\.\.\.\]", "<gap>", text)
+    text = re.sub(r"\u2026+", "<gap>", text)  # …
+    text = re.sub(r"\(break\)", "<gap>", text)
+    text = re.sub(r"\(large break\)", "<gap>", text)
+    text = re.sub(r"\(\d+ broken lines\)", "<gap>", text)
+    # Replace <big_gap> → <gap>
+    text = text.replace("<big_gap>", "<gap>")
+    # Deduplicate adjacent <gap> tokens (with optional dashes/spaces between)
+    text = re.sub(r"(<gap>)(?:[\s\-]*<gap>)+", r"\1", text)
     # Remove square brackets around readable text: [KÙ.BABBAR] → KÙ.BABBAR
     text = re.sub(r"\[([^\[\]]*?)\]", r"\1", text)
     # Remove line dividers / and word dividers : (standalone)
@@ -123,5 +125,90 @@ def normalize_text(
     if lowercase:
         text = text.lower()
 
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+# ── Decimal-to-fraction mapping (per competition v3 recommendations) ──
+DECIMAL_TO_FRACTION = {
+    "0.5": "½", "0.25": "¼", "0.75": "¾",
+    "0.3333": "⅓", "0.33333": "⅓", "0.333": "⅓",
+    "0.6666": "⅔", "0.66666": "⅔", "0.667": "⅔",
+    "0.1666": "⅙", "0.16666": "⅙", "0.167": "⅙",
+    "0.8333": "⅚", "0.83333": "⅚", "0.833": "⅚",
+    "0.625": "⅝",
+}
+
+# Roman numeral to integer for months
+_ROMAN_TO_INT = {
+    "I": "1", "II": "2", "III": "3", "IV": "4", "V": "5", "VI": "6",
+    "VII": "7", "VIII": "8", "IX": "9", "X": "10", "XI": "11", "XII": "12",
+}
+
+
+def clean_translation(text: str) -> str:
+    """Apply competition v3 recommended cleaning to translation text.
+
+    This handles: fem./sing./pl. removal, PN→<gap>, decimal→fraction,
+    month Roman→integer, -textiles/-gold/-tax expansion, straight quotes,
+    (?) removal, gap deduplication.
+    """
+    if not isinstance(text, str):
+        return "" if text is None else str(text)
+
+    # Straight quotes (curly → straight)
+    text = text.replace("\u201c", '"').replace("\u201d", '"')
+    text = text.replace("\u2018", "'").replace("\u2019", "'")
+
+    # Remove scribal annotations: fem., sing., pl., plural
+    text = re.sub(r"\bfem\.\s*", "", text)
+    text = re.sub(r"\bsing\.\s*", "", text)
+    text = re.sub(r"\bpl\.\s*", "", text)
+    text = re.sub(r"\bplural\b\s*", "", text)
+
+    # Remove (?) markers
+    text = re.sub(r"\(\?\)", "", text)
+
+    # PN → <gap>
+    text = re.sub(r"\bPN\b", "<gap>", text)
+
+    # -textiles → kutānum textiles  (only when preceded by space, i.e. standalone)
+    text = re.sub(r"(?<=\s)-textiles\b", "kutānum textiles", text)
+    # -gold → pašallum gold
+    text = re.sub(r"(?<=\s)-gold\b", "pašallum gold", text)
+    # -tax → šadduātum tax
+    text = re.sub(r"(?<=\s)-tax\b", "šadduātum tax", text)
+
+    # Decimal fractions → unicode fractions (translation only)
+    # Sort by length descending to match longer decimals first
+    for dec, frac in sorted(DECIMAL_TO_FRACTION.items(), key=lambda x: -len(x[0])):
+        text = text.replace(dec, frac)
+
+    # Long floats with many decimal places → fraction
+    text = re.sub(r"1\.3333\d*", "1⅓", text)
+    text = re.sub(r"1\.6666\d*", "1⅔", text)
+    text = re.sub(r"2\.6666\d*", "2⅔", text)
+    text = re.sub(r"(\d+)\.3333\d*", lambda m: m.group(1) + "⅓", text)
+    text = re.sub(r"(\d+)\.6666\d*", lambda m: m.group(1) + "⅔", text)
+    text = re.sub(r"(\d+)\.8333\d*", lambda m: m.group(1) + "⅚", text)
+    text = re.sub(r"(\d+)\.1666\d*", lambda m: m.group(1) + "⅙", text)
+
+    # Month Roman numerals → integers (e.g. "month V" → "month 5", "Month XII" → "Month 12")
+    def _replace_month_roman(m):
+        prefix = m.group(1)  # "month" or "Month"
+        roman = m.group(2)
+        return prefix + " " + _ROMAN_TO_INT.get(roman, roman)
+    text = re.sub(r"\b((?:M|m)onth)\s+(XII|XI|IX|VIII|VII|VI|IV|III|II|X|V|I)\b", _replace_month_roman, text)
+
+    # Replace <big_gap> → <gap> in translations too
+    text = text.replace("<big_gap>", "<gap>")
+
+    # Deduplicate adjacent <gap>
+    text = re.sub(r"(<gap>)(?:[\s\-]*<gap>)+", r"\1", text)
+
+    # Ḫ/ḫ → H/h  (not present in test translations per host)
+    text = text.replace("\u1e2a", "H").replace("\u1e2b", "h")
+
+    # Clean up whitespace
     text = re.sub(r"\s+", " ", text).strip()
     return text

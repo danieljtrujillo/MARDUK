@@ -87,17 +87,12 @@ SUPERSCRIPT_MAP = str.maketrans(
     "\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079",
     "0123456789",
 )
-VOWEL_MAP = {
-    "\u00e1": "a2", "\u00e0": "a3", "\u00e9": "e2", "\u00e8": "e3",
-    "\u00ed": "i2", "\u00ec": "i3", "\u00fa": "u2", "\u00f9": "u3",
-}
+# NOTE: Diacritics (á à é è í ì ú ù) are preserved — test data uses them
 
 def normalize_akkadian_chars(text: str) -> str:
     text = text.translate(AKKADIAN_CHAR_MAP)
     text = text.translate(SUBSCRIPT_MAP)
     text = text.translate(SUPERSCRIPT_MAP)
-    for src, dst in VOWEL_MAP.items():
-        text = text.replace(src, dst)
     return text
 
 def normalize_scribal_notations(text: str) -> str:
@@ -107,11 +102,16 @@ def normalize_scribal_notations(text: str) -> str:
     text = text.replace("\u2e22", "").replace("\u2e23", "")
     text = text.replace("\u0338", "").replace("\u0339", "")
     text = re.sub(r"<<([^>]*)>>", r"\1", text)
-    text = re.sub(r"<(?!/?(?:gap|big_gap|raw|norm|gloss)\b)([^>]*)>", r"\1", text)
+    text = re.sub(r"<(?!/?(?:gap|raw|norm|gloss)\b)([^>]*)>", r"\1", text)
     text = re.sub(r"\[x\]", "<gap>", text)
-    text = re.sub(r"\[\.\.\.\s*\.\.\.\]", "<big_gap>", text)
-    text = re.sub(r"\[\.\.\.\]", "<big_gap>", text)
-    text = re.sub(r"\u2026+", "<big_gap>", text)
+    text = re.sub(r"\[\.\.\.\s*\.\.\.\]", "<gap>", text)
+    text = re.sub(r"\[\.\.\.\]", "<gap>", text)
+    text = re.sub(r"\u2026+", "<gap>", text)
+    text = re.sub(r"\(break\)", "<gap>", text)
+    text = re.sub(r"\(large break\)", "<gap>", text)
+    text = re.sub(r"\(\d+ broken lines\)", "<gap>", text)
+    text = text.replace("<big_gap>", "<gap>")
+    text = re.sub(r"(<gap>)(?:[\s\-]*<gap>)+", r"\1", text)
     text = re.sub(r"\[([^\[\]]*?)\]", r"\1", text)
     text = re.sub(r"\s/\s", " ", text)
     text = re.sub(r"\s:\s", " ", text)
@@ -219,9 +219,28 @@ for i in tqdm(range(0, len(packed_sources), BATCH_SIZE), desc="Translating"):
 print(f"\nGenerated {len(all_predictions)} translations")
 
 # %% [markdown]
-# ## 6. Create Submission
+# ## 6. Post-Process & Create Submission
 
 # %%
+def postprocess_translation(text: str) -> str:
+    """Clean model output to match expected test format."""
+    # Curly → straight quotes
+    text = text.replace("\u201c", '"').replace("\u201d", '"')
+    text = text.replace("\u2018", "'").replace("\u2019", "'")
+    # En/em dash → hyphen
+    text = text.replace("\u2013", "-").replace("\u2014", "-")
+    # Remove any <big_gap> the model might output
+    text = text.replace("<big_gap>", "<gap>")
+    # Deduplicate adjacent <gap>
+    text = re.sub(r"(<gap>)(?:[\s\-]*<gap>)+", r"\1", text)
+    # Ḫ/ḫ → H/h (not in test translations)
+    text = text.replace("\u1e2a", "H").replace("\u1e2b", "h")
+    # Clean whitespace  
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+all_predictions = [postprocess_translation(p) for p in all_predictions]
+
 submission = pd.DataFrame({
     "id": test_df["id"].values,
     "translation": all_predictions,

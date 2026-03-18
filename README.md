@@ -11,8 +11,9 @@ Welcome to MARDUK! MARDUK is a challenging problem in computational linguistics 
 Competition Facts
 Metric: Score = √(BLEU × chrF++) (geometric mean)
 Deadline: March 23, 2026 (entry deadline)
-Prize: $50,000 pool
+Prize: $50,000 total (6 prizes: $15K/$10K/$8K/$7K/$5K/$5K)
 Type: Code competition (no internet at inference time, ≤9h GPU runtime)
+Teams: 3,023 teams, 3,643 participants, 61,723 submissions
 Public test: 4 segments, 1 text → scored 100.0
 Private test: ~4,000 sentences from ~400 documents, likely drawn from 6,388 untranslated published texts
 Repository Structure

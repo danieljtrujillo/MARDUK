@@ -1,0 +1,14 @@
+{
+  "id": "theskateborg/marduk-akkadian-translation",
+  "title": "MARDUK Akkadian Translation",
+  "code_file": "kaggle_notebook.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": false,
+  "competition_sources": ["deep-past-initiative-machine-translation"],
+  "dataset_sources": [],
+  "kernel_sources": ["theskateborg/marduk-model-download"],
+  "category_ids": ["gpu"]
+}

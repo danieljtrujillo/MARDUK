@@ -7,7 +7,7 @@ import pandas as pd
 
 from src.data.build_dual_view import build_metadata_prefix, pack_source
 from src.data.load_kaggle import ColumnConfig, materialize_examples, read_csv
-from src.data.normalize import normalize_text
+from src.data.normalize import normalize_text, clean_translation
 from src.data.splitters import FoldConfig, add_kfold_column, add_group_kfold_column
 from src.utils.io import ensure_dir, load_yaml
 from src.utils.logging import get_logger
@@ -99,6 +99,8 @@ def main() -> None:
     )
     train = materialize_examples(train_df, columns)
     train["data_source"] = "train"
+    # Apply v3 competition cleaning to translation targets
+    train["target_text"] = train["target_text"].map(clean_translation)
     logger.info("Loaded %d training examples from train.csv", len(train))
 
     # ── Load augmented data if available ──
@@ -116,6 +118,7 @@ def main() -> None:
                 ),
             )
             aug["data_source"] = "augmented"
+            aug["target_text"] = aug["target_text"].map(clean_translation)
             train = pd.concat([train, aug], ignore_index=True)
             logger.info("Added %d augmented examples (total: %d)", len(aug), len(train))
 

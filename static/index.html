@@ -456,6 +456,157 @@
     margin-top: 8px;
   }
 
+  /* Tooltip styles */
+  .tt {
+    position: relative;
+    cursor: help;
+    border-bottom: 1px dotted var(--text-muted);
+  }
+  .tt .tt-text {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a1a2e;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: normal;
+    width: max-content;
+    max-width: 280px;
+    z-index: 100;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    transition: opacity 0.15s, visibility 0.15s;
+    pointer-events: none;
+  }
+  .tt:hover .tt-text { visibility: visible; opacity: 1; }
+
+  /* Score distribution chart */
+  .dist-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 12px;
+  }
+  .dist-bar-label {
+    width: 80px;
+    text-align: right;
+    color: var(--text-muted);
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .dist-bar-track {
+    flex: 1;
+    height: 18px;
+    background: #21262d;
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+  }
+  .dist-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    min-width: fit-content;
+  }
+  .dist-bar-score {
+    width: 40px;
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+  .dist-you { border: 2px solid var(--gold); border-radius: 5px; padding: 2px 0; }
+
+  /* Texts viewer */
+  .text-pair {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .text-pair-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .text-pair-id {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+  .text-pair-source {
+    font-size: 13px;
+    color: var(--warning);
+    font-family: var(--font-mono);
+    line-height: 1.5;
+    margin-bottom: 6px;
+    padding: 8px;
+    background: var(--bg-input);
+    border-radius: 4px;
+  }
+  .text-pair-target {
+    font-size: 13px;
+    color: var(--success);
+    line-height: 1.5;
+    padding: 8px;
+    background: var(--bg-input);
+    border-radius: 4px;
+  }
+  .tts-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 3px 8px;
+    font-size: 11px;
+    transition: all 0.2s;
+  }
+  .tts-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .tts-btn.playing { color: var(--accent); border-color: var(--accent); }
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .pagination button {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px 12px;
+    font-size: 12px;
+  }
+  .pagination button:hover { background: var(--bg-hover); }
+  .pagination button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* Console log styling */
+  .log-timestamp { color: #555580; font-size: 11px; }
+  .log-step { color: var(--accent); }
+  .log-metric-key { color: var(--text-muted); }
+  .log-metric-val { color: var(--gold); font-weight: 600; }
+
   /* Progress bar for console */
   .progress-bar {
     height: 3px;
@@ -512,6 +663,7 @@
     <div class="tabs-panel">
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="scores">Scores</button>
+        <button class="tab-btn" data-tab="texts">Texts</button>
         <button class="tab-btn" data-tab="data">Data Prep</button>
         <button class="tab-btn" data-tab="train">Train</button>
         <button class="tab-btn" data-tab="inference">Inference</button>
@@ -522,54 +674,110 @@
         <!-- SCORES TAB -->
         <div class="tab-pane active" id="tab-scores">
           <div class="form-section">
-            <div class="form-section-title">Competition Scores — Auto-updating</div>
+            <div class="form-section-title">
+              <span class="tt">Competition Scores — Auto-updating
+                <span class="tt-text">Updates every 10 seconds from the best metrics.json across all completed training runs. The competition metric is √(BLEU × chrF++), scored on 4 hidden test examples.</span>
+              </span>
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
               <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
-                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Best Score</div>
+                <div class="tt" style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Best Score
+                  <span class="tt-text">The geometric mean of BLEU and chrF++: √(BLEU × chrF++). This is the official Kaggle ranking metric for the competition.</span>
+                </div>
                 <div id="score-best" style="font-size:36px;font-weight:700;color:var(--gold);font-family:var(--font-mono);margin:4px 0;">—</div>
                 <div id="score-best-run" style="font-size:11px;color:var(--text-muted);">—</div>
               </div>
               <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
-                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Best BLEU</div>
+                <div class="tt" style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Best BLEU
+                  <span class="tt-text">SacreBLEU measures exact n-gram overlap between the model's translation and the reference. Higher = more precise word-for-word matches.</span>
+                </div>
                 <div id="score-bleu" style="font-size:36px;font-weight:700;color:var(--accent);font-family:var(--font-mono);margin:4px 0;">—</div>
                 <div style="font-size:11px;color:var(--text-muted);">SacreBLEU</div>
               </div>
               <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
-                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Best chrF++</div>
+                <div class="tt" style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Best chrF++
+                  <span class="tt-text">Character-level F-score with word unigrams and bigrams. More forgiving than BLEU — captures partial word matches and morphological similarity.</span>
+                </div>
                 <div id="score-chrf" style="font-size:36px;font-weight:700;color:var(--accent);font-family:var(--font-mono);margin:4px 0;">—</div>
                 <div style="font-size:11px;color:var(--text-muted);">chrF++ score</div>
               </div>
             </div>
           </div>
           <div class="form-section">
-            <div class="form-section-title">Leaderboard Context</div>
+            <div class="form-section-title">
+              <span class="tt">Leaderboard Context
+                <span class="tt-text">Compares your best score against the current Kaggle leaderboard. Rankings estimated from the public leaderboard distribution of ~3,023 teams.</span>
+              </span>
+            </div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
               <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
-                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Leader</div>
+                <div class="tt" style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Leader
+                  <span class="tt-text">Current #1 on the public leaderboard (KE WU). The top score across all competing teams.</span>
+                </div>
                 <div style="font-size:22px;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);">40.6</div>
               </div>
               <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
-                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Prize Floor</div>
-                <div style="font-size:22px;font-weight:700;color:var(--success);font-family:var(--font-mono);">37.7</div>
+                <div class="tt" style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Prize Floor
+                  <span class="tt-text">Minimum score needed to win prize money (top 6 teams). 1st: $15K, 2nd: $10K, 3rd: $8K, 4th: $7K, 5th: $5K, 6th: $5K.</span>
+                </div>
+                <div style="font-size:22px;font-weight:700;color:var(--success);font-family:var(--font-mono);">39.6</div>
               </div>
               <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
-                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Median</div>
+                <div class="tt" style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Median
+                  <span class="tt-text">The 50th percentile score: half of all teams score above this, half below.</span>
+                </div>
                 <div style="font-size:22px;font-weight:700;color:var(--text-secondary);font-family:var(--font-mono);">32.5</div>
               </div>
               <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;">
-                <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Gap to Prize</div>
+                <div class="tt" style="font-size:10px;color:var(--text-muted);text-transform:uppercase;">Gap to Prize
+                  <span class="tt-text">Points difference between your best score and the prize floor (39.6). Negative = still below prize range.</span>
+                </div>
                 <div id="score-gap" style="font-size:22px;font-weight:700;color:var(--error);font-family:var(--font-mono);">—</div>
               </div>
             </div>
           </div>
           <div class="form-section">
-            <div class="form-section-title">Live Training</div>
+            <div class="form-section-title">
+              <span class="tt">Score Distribution
+                <span class="tt-text">Visual ranking of your score against the leaderboard. Bars show approximate score ranges; your position is highlighted. Ordered from highest to lowest.</span>
+              </span>
+            </div>
+            <div id="score-distribution">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="tt">Live Training
+                <span class="tt-text">Real-time metrics from a running training job. ETA uses recent step throughput to account for training slowdown over time (not a simple linear projection).</span>
+              </span>
+            </div>
             <div style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:14px;">
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">
-                <div><span style="font-size:11px;color:var(--text-muted);">Epoch</span><div id="live-epoch" style="font-size:18px;font-weight:600;font-family:var(--font-mono);">—</div></div>
-                <div><span style="font-size:11px;color:var(--text-muted);">Loss</span><div id="live-loss" style="font-size:18px;font-weight:600;font-family:var(--font-mono);">—</div></div>
-                <div><span style="font-size:11px;color:var(--text-muted);">Eval Score</span><div id="live-eval-score" style="font-size:18px;font-weight:600;font-family:var(--font-mono);color:var(--gold);">—</div></div>
-                <div><span style="font-size:11px;color:var(--text-muted);">LR</span><div id="live-lr" style="font-size:18px;font-weight:600;font-family:var(--font-mono);">—</div></div>
+                <div>
+                  <span class="tt" style="font-size:11px;color:var(--text-muted);">Epoch
+                    <span class="tt-text">One full pass through the training data. More epochs = the model sees the data more times.</span>
+                  </span>
+                  <div id="live-epoch" style="font-size:18px;font-weight:600;font-family:var(--font-mono);">—</div>
+                </div>
+                <div>
+                  <span class="tt" style="font-size:11px;color:var(--text-muted);">Loss
+                    <span class="tt-text">Cross-entropy loss on the current batch. Lower = model is learning. Typically drops from ~3.0 to &lt;1.0 during training.</span>
+                  </span>
+                  <div id="live-loss" style="font-size:18px;font-weight:600;font-family:var(--font-mono);">—</div>
+                </div>
+                <div>
+                  <span class="tt" style="font-size:11px;color:var(--text-muted);">Eval Score
+                    <span class="tt-text">Competition score √(BLEU × chrF++) on the held-out validation set, measured after each evaluation round.</span>
+                  </span>
+                  <div id="live-eval-score" style="font-size:18px;font-weight:600;font-family:var(--font-mono);color:var(--gold);">—</div>
+                </div>
+                <div>
+                  <span class="tt" style="font-size:11px;color:var(--text-muted);">LR
+                    <span class="tt-text">Learning rate — how aggressively the model updates its weights each step. Usually starts high, decays over time.</span>
+                  </span>
+                  <div id="live-lr" style="font-size:18px;font-weight:600;font-family:var(--font-mono);">—</div>
+                </div>
               </div>
               <div style="margin-top:10px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:4px;">
@@ -584,8 +792,36 @@
             </div>
           </div>
           <div class="form-section">
-            <div class="form-section-title">All Runs</div>
+            <div class="form-section-title">
+              <span class="tt">All Runs
+                <span class="tt-text">Every completed training run with saved metrics. The star (★) marks the best-performing run by competition score.</span>
+              </span>
+            </div>
             <div id="runs-table" style="font-size:13px;">Loading…</div>
+          </div>
+        </div>
+
+        <!-- TEXTS TAB -->
+        <div class="tab-pane" id="tab-texts">
+          <div class="form-section">
+            <div class="form-section-title">
+              <span class="tt">Akkadian Text Viewer
+                <span class="tt-text">Browse the parallel training corpus — Akkadian transliterations paired with their English translations. Use the speaker buttons to hear the text read aloud.</span>
+              </span>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <input type="text" id="texts-search" placeholder="Search transliterations or translations…" style="flex:1;" onkeydown="if(event.key==='Enter')loadTexts(0)">
+              <button class="btn btn-primary" onclick="loadTexts(0)" style="padding:8px 16px;">Search</button>
+              <button class="btn btn-ghost" onclick="document.getElementById('texts-search').value='';loadTexts(0)">Clear</button>
+            </div>
+            <div id="texts-container">
+              <div style="color:var(--text-muted);font-size:13px;padding:20px;text-align:center;">Click Search or press Enter to load texts</div>
+            </div>
+            <div class="pagination" id="texts-pagination" style="display:none;">
+              <button onclick="loadTexts(textsOffset-50)" id="texts-prev" disabled>← Previous</button>
+              <span id="texts-info">—</span>
+              <button onclick="loadTexts(textsOffset+50)" id="texts-next">Next →</button>
+            </div>
           </div>
         </div>
 
@@ -765,13 +1001,13 @@
 
   <!-- Metrics bar -->
   <div class="metrics-bar" id="metrics-bar">
-    <div class="metric-item"><span class="metric-label">BLEU</span> <span class="metric-value" id="m-bleu">—</span></div>
-    <div class="metric-item"><span class="metric-label">chrF++</span> <span class="metric-value" id="m-chrf">—</span></div>
-    <div class="metric-item"><span class="metric-label">Competition</span> <span class="metric-value" id="m-comp">—</span></div>
-    <div class="metric-item"><span class="metric-label">Name F1</span> <span class="metric-value" id="m-name">—</span></div>
-    <div class="metric-item"><span class="metric-label">Number Match</span> <span class="metric-value" id="m-number">—</span></div>
-    <div class="metric-item"><span class="metric-label">Length Ratio</span> <span class="metric-value" id="m-lenratio">—</span></div>
-    <div class="metric-item"><span class="metric-label">Hallucination</span> <span class="metric-value" id="m-halluc">—</span></div>
+    <div class="metric-item"><span class="metric-label tt">BLEU<span class="tt-text">SacreBLEU: measures exact n-gram matches between prediction and reference translation</span></span> <span class="metric-value" id="m-bleu">—</span></div>
+    <div class="metric-item"><span class="metric-label tt">chrF++<span class="tt-text">Character-level F-score with word n-grams — captures partial and morphological matches</span></span> <span class="metric-value" id="m-chrf">—</span></div>
+    <div class="metric-item"><span class="metric-label tt">Competition<span class="tt-text">√(BLEU × chrF++) — the official Kaggle ranking metric for this competition</span></span> <span class="metric-value" id="m-comp">—</span></div>
+    <div class="metric-item"><span class="metric-label tt">Name F1<span class="tt-text">F1 score on proper name extraction (e.g. rulers, cities, people mentioned in the text)</span></span> <span class="metric-value" id="m-name">—</span></div>
+    <div class="metric-item"><span class="metric-label tt">Number Match<span class="tt-text">Exact match rate for numerical values (quantities, dates, measurements) in translations</span></span> <span class="metric-value" id="m-number">—</span></div>
+    <div class="metric-item"><span class="metric-label tt">Length Ratio<span class="tt-text">Ratio of predicted translation length to reference length (1.0 = same length, &gt;1 = too verbose)</span></span> <span class="metric-value" id="m-lenratio">—</span></div>
+    <div class="metric-item"><span class="metric-label tt">Hallucination<span class="tt-text">Proxy for fabricated content — measures if the model generates text about damaged/missing tablet sections</span></span> <span class="metric-value" id="m-halluc">—</span></div>
   </div>
 </div>
 
@@ -779,6 +1015,77 @@
 // ── State ──
 let ws = null;
 let isRunning = false;
+let textsOffset = 0;
+
+// ── Score distribution data (from Kaggle leaderboard) ──
+const LB_DIST = [
+  { label: '#1 KE WU', score: 40.61, rank: 1, tier: 'Prize', color: '#34d399' },
+  { label: '#6 Prize Floor', score: 39.63, rank: 6, tier: 'Prize', color: '#34d399' },
+  { label: 'Top 1%', score: 38.44, rank: 30, tier: 'Gold', color: '#facc15' },
+  { label: 'Top 10%', score: 36.41, rank: 302, tier: 'Strong', color: '#6366f1' },
+  { label: 'Top 25%', score: 33.8, rank: 756, tier: 'Competitive', color: '#818cf8' },
+  { label: 'Median', score: 32.5, rank: 1512, tier: 'Middle', color: '#6b7280' },
+  { label: 'Top 75%', score: 23.3, rank: 2267, tier: 'Below avg', color: '#6b7280' },
+  { label: 'Top 90%', score: 7.9, rank: 2721, tier: 'Minimal', color: '#f87171' },
+];
+const MAX_SCORE = 41.0;
+
+function renderScoreDistribution(yourScore) {
+  const container = document.getElementById('score-distribution');
+  if (!container) return;
+  // Build sorted entries (highest score first) with "You" inserted
+  let entries = LB_DIST.map(e => ({...e, isYou: false}));
+  if (yourScore !== undefined && yourScore > 0) {
+    const rank = estimateRank(yourScore);
+    const [tier] = estimateTier(rank);
+    entries.push({ label: 'YOU (MARDUK)', score: yourScore, rank, tier, color: '#c9a44e', isYou: true });
+  }
+  entries.sort((a, b) => b.score - a.score);
+
+  let html = '';
+  entries.forEach(e => {
+    const pct = (e.score / MAX_SCORE * 100).toFixed(1);
+    const youCls = e.isYou ? ' dist-you' : '';
+    const labelColor = e.isYou ? 'color:var(--gold);font-weight:600;' : '';
+    const barColor = e.color;
+    const barLabel = e.isYou ? '★ ' + e.score.toFixed(1) : e.score.toFixed(1);
+    html += `<div class="dist-bar-row${youCls}">
+      <span class="dist-bar-label" style="${labelColor}">${e.label}</span>
+      <div class="dist-bar-track">
+        <div class="dist-bar-fill" style="width:${pct}%;background:${barColor};">${barLabel}</div>
+      </div>
+      <span class="dist-bar-score" title="~#${e.rank.toLocaleString()} / 3,023 — ${e.tier}">#${e.rank.toLocaleString()}</span>
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function estimateRank(score) {
+  const pts = [[40.61,1],[39.63,6],[38.44,30],[36.41,302],[33.8,756],[32.5,1512],[23.3,2267],[7.9,2721],[0,3023]];
+  if (score >= pts[0][0]) return 1;
+  if (score <= 0) return 3023;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [s1,r1] = pts[i], [s2,r2] = pts[i+1];
+    if (score <= s1 && score >= s2) {
+      const t = (s1 - score) / (s1 - s2);
+      return Math.round(r1 + t * (r2 - r1));
+    }
+  }
+  return 2951;
+}
+
+function estimateTier(rank) {
+  if (rank <= 20) return ['Prize','#34d399'];
+  if (rank <= 295) return ['Strong','#6366f1'];
+  if (rank <= 738) return ['Competitive','#818cf8'];
+  if (rank <= 1475) return ['Middle','#6b7280'];
+  if (rank <= 2213) return ['Below avg','#6b7280'];
+  if (rank <= 2656) return ['Bottom 17%','#fbbf24'];
+  return ['Minimal','#f87171'];
+}
+
+// Render initial distribution (no score yet)
+renderScoreDistribution(undefined);
 
 // ── tqdm progress parser ──
 const _TQDM_RE = /(\d+)%\|.*?\|\s*(\d+)\/(\d+)\s*\[([\d:]+)<([\d:]+)/;
@@ -810,6 +1117,41 @@ function clearProgress() {
   document.getElementById('live-eta').textContent = '—';
 }
 
+// ── Console log formatting ──
+function formatLogLine(text) {
+  // Strip trailing whitespace
+  let line = text.replace(/\s+$/, '');
+  if (!line) return null;
+
+  // Skip raw tqdm bar redraws (keep the final one)
+  if (/^\s*\d+%\|[█▏▎▍▌▋▊▉ ]+\|/.test(line)) return null;
+
+  // Format metric dictionaries: {'loss': 2.3, 'epoch': 1.0, ...}
+  if (/^\s*\{.*'(eval_|loss|epoch|learning_rate)/.test(line)) {
+    const pairs = [];
+    const re = /'([^']+)'\s*:\s*([\d.eE+-]+)/g;
+    let m;
+    while ((m = re.exec(line)) !== null) {
+      const key = m[1].replace('eval_', '');
+      const val = parseFloat(m[2]);
+      const formatted = key === 'learning_rate' ? val.toExponential(2) : val.toFixed(4);
+      pairs.push(`<span class="log-metric-key">${key}</span> <span class="log-metric-val">${formatted}</span>`);
+    }
+    if (pairs.length > 0) {
+      const ts = new Date().toLocaleTimeString('en-US', {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+      return `<span class="log-timestamp">[${ts}]</span> ${pairs.join('  ')}\n`;
+    }
+  }
+
+  // Format step progress lines
+  const stepMatch = line.match(/Step\s+(\d+)\/(\d+)/i);
+  if (stepMatch) {
+    return `<span class="log-step">${line}</span>\n`;
+  }
+
+  return null;  // return null to use default text append
+}
+
 // ── WebSocket ──
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -828,31 +1170,34 @@ function connectWS() {
 }
 
 function handleMessage(msg) {
-  const con = document.getElementById('console-output');
-
   switch (msg.type) {
     case 'log':
-      appendLog(msg.text);
+      const formatted = formatLogLine(msg.text);
+      if (formatted) {
+        appendLogHtml(formatted);
+      } else if (msg.text.trim()) {
+        appendLog(msg.text);
+      }
       updateLiveMetrics(parseMetricsFromLog(msg.text));
       updateProgress(parseTqdmProgress(msg.text));
       break;
     case 'started':
       setRunning(true, msg.task);
-      appendLog(`\n━━━ ${msg.task.toUpperCase()} started ━━━\n`, 'log-info');
+      appendLogHtml(`\n<span class="log-info">━━━ ${msg.task.toUpperCase()} started ━━━</span>\n`);
       break;
     case 'finished':
       setRunning(false);
       const cls = msg.code === 0 ? 'log-success' : 'log-error';
       const sym = msg.code === 0 ? '✓' : '✗';
-      appendLog(`\n${sym} ${msg.task} exited with code ${msg.code}\n`, cls);
+      appendLogHtml(`\n<span class="${cls}">${sym} ${msg.task} exited with code ${msg.code}</span>\n`);
       fetchMetrics();
       break;
     case 'killed':
       setRunning(false);
-      appendLog('\n⚠ Process killed by user\n', 'log-warning');
+      appendLogHtml('\n<span class="log-warning">⚠ Process killed by user</span>\n');
       break;
     case 'error':
-      appendLog(`\n✗ Error: ${msg.text}\n`, 'log-error');
+      appendLogHtml(`\n<span class="log-error">✗ Error: ${msg.text}</span>\n`);
       break;
     case 'status':
       setRunning(msg.running, msg.task);
@@ -860,16 +1205,17 @@ function handleMessage(msg) {
   }
 }
 
-function appendLog(text, cls) {
+function appendLog(text) {
   const con = document.getElementById('console-output');
-  if (cls) {
-    const span = document.createElement('span');
-    span.className = cls;
-    span.textContent = text;
-    con.appendChild(span);
-  } else {
-    con.appendChild(document.createTextNode(text));
-  }
+  con.appendChild(document.createTextNode(text));
+  con.scrollTop = con.scrollHeight;
+}
+
+function appendLogHtml(html) {
+  const con = document.getElementById('console-output');
+  const span = document.createElement('span');
+  span.innerHTML = html;
+  con.appendChild(span);
   con.scrollTop = con.scrollHeight;
 }
 
@@ -877,10 +1223,105 @@ function clearConsole() {
   document.getElementById('console-output').innerHTML = '';
 }
 
+// ── Texts Viewer ──
+async function loadTexts(offset) {
+  if (offset < 0) offset = 0;
+  textsOffset = offset;
+  const search = document.getElementById('texts-search').value;
+  const container = document.getElementById('texts-container');
+  container.innerHTML = '<div style="color:var(--text-muted);padding:20px;text-align:center;">Loading…</div>';
+
+  try {
+    const params = new URLSearchParams({ offset, limit: 50 });
+    if (search) params.set('search', search);
+    const resp = await fetch('/api/training-data?' + params);
+    if (!resp.ok) throw new Error('Failed to load');
+    const data = await resp.json();
+
+    if (data.rows.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-muted);padding:20px;text-align:center;">No results found</div>';
+      document.getElementById('texts-pagination').style.display = 'none';
+      return;
+    }
+
+    let html = '';
+    data.rows.forEach((row, i) => {
+      const idx = offset + i;
+      html += `<div class="text-pair">
+        <div class="text-pair-header">
+          <span class="text-pair-id">#${idx + 1} ${row.text_id ? '— ' + row.text_id : ''} ${row.data_source ? '<span style="color:var(--accent)">[' + row.data_source + ']</span>' : ''}</span>
+          <div style="display:flex;gap:4px;">
+            <button class="tts-btn" onclick="speakText(this, '${escapeJs(row.source_text)}', 'akkadian')" title="Listen in Akkadian (transliteration)">🔊 Akkadian</button>
+            <button class="tts-btn" onclick="speakText(this, '${escapeJs(row.target_text)}', 'en')" title="Listen in English">🔊 English</button>
+          </div>
+        </div>
+        <div class="text-pair-source">${escapeHtml(row.source_text)}</div>
+        <div class="text-pair-target">${escapeHtml(row.target_text)}</div>
+      </div>`;
+    });
+    container.innerHTML = html;
+
+    // Pagination
+    const pag = document.getElementById('texts-pagination');
+    pag.style.display = 'flex';
+    document.getElementById('texts-prev').disabled = offset === 0;
+    document.getElementById('texts-next').disabled = offset + 50 >= data.total;
+    document.getElementById('texts-info').textContent = `${offset + 1}–${Math.min(offset + 50, data.total)} of ${data.total.toLocaleString()}`;
+  } catch (e) {
+    container.innerHTML = `<div style="color:var(--error);padding:20px;text-align:center;">Error loading texts: ${e.message}</div>`;
+  }
+}
+
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function escapeJs(s) {
+  return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
+}
+
+// ── TTS (Text-to-Speech) ──
+let currentUtterance = null;
+
+function speakText(btn, text, lang) {
+  // Stop any current speech
+  if (speechSynthesis.speaking) {
+    speechSynthesis.cancel();
+    document.querySelectorAll('.tts-btn.playing').forEach(b => b.classList.remove('playing'));
+    // If clicking the same button, just stop
+    if (btn.classList.contains('playing')) {
+      btn.classList.remove('playing');
+      return;
+    }
+  }
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  // For Akkadian transliterations, use a slower rate with a neutral voice
+  // Akkadian is not a supported language, so we use English voice with slow rate
+  if (lang === 'akkadian') {
+    utterance.lang = 'en-US';
+    utterance.rate = 0.7;  // Slower for reading transliterations
+    utterance.pitch = 0.9;
+  } else {
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
+  }
+
+  btn.classList.add('playing');
+  utterance.onend = () => btn.classList.remove('playing');
+  utterance.onerror = () => btn.classList.remove('playing');
+
+  currentUtterance = utterance;
+  speechSynthesis.speak(utterance);
+}
+
 // ── API calls ──
 async function runTask(task) {
   if (isRunning) {
-    appendLog('\n⚠ A process is already running\n', 'log-warning');
+    appendLogHtml('\n<span class="log-warning">⚠ A process is already running</span>\n');
     return;
   }
 
@@ -893,7 +1334,7 @@ async function runTask(task) {
 
   if (!resp.ok) {
     const err = await resp.json();
-    appendLog(`\n✗ ${err.error}\n`, 'log-error');
+    appendLogHtml(`\n<span class="log-error">✗ ${err.error}</span>\n`);
   }
 }
 
@@ -1056,10 +1497,11 @@ async function fetchMetrics() {
     if (comp !== undefined) {
       document.getElementById('score-best').textContent = comp.toFixed(2);
       document.getElementById('m-comp').textContent = comp.toFixed(2);
-      const gap = 37.7 - comp;
+      const gap = 39.6 - comp;
       const gapEl = document.getElementById('score-gap');
       gapEl.textContent = (gap > 0 ? '-' : '+') + Math.abs(gap).toFixed(1);
       gapEl.style.color = gap > 0 ? 'var(--error)' : 'var(--success)';
+      renderScoreDistribution(comp);
     }
     if (bleu !== undefined) {
       document.getElementById('score-bleu').textContent = bleu.toFixed(2);
@@ -1139,12 +1581,18 @@ async function fetchMetrics() {
 }
 
 // ── Tabs ──
+let textsLoaded = false;
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    // Auto-load texts on first visit
+    if (btn.dataset.tab === 'texts' && !textsLoaded) {
+      textsLoaded = true;
+      loadTexts(0);
+    }
   });
 });
 
