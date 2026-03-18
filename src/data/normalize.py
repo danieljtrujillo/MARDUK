@@ -154,7 +154,7 @@ def clean_translation(text: str) -> str:
     (?) removal, gap deduplication.
     """
     if not isinstance(text, str):
-        return "" if text is None else str(text)
+        return ""
 
     # Straight quotes (curly → straight)
     text = text.replace("\u201c", '"').replace("\u201d", '"')

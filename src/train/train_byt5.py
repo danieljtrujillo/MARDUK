@@ -54,8 +54,8 @@ def load_splits(data_cfg: dict, fold: int) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 def build_dataset(df: pd.DataFrame, tokenizer, src_max: int, tgt_max: int) -> Dataset:
     """Tokenize source/target pairs for ByT5."""
-    sources = df["packed_source"].tolist()
-    targets = df["target_text"].tolist()
+    sources = df["packed_source"].fillna("").tolist()
+    targets = df["target_text"].fillna("").tolist()
 
     model_inputs = tokenizer(
         sources, max_length=src_max, truncation=True, padding=False,

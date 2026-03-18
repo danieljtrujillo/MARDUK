@@ -151,6 +151,13 @@ def main() -> None:
         _apply_normalization(frame, norm_cfg)
         _apply_packing(frame, data_cfg, view_cfg)
 
+    # ── Drop rows with missing target_text (unusable for training) ──
+    n_before = len(train)
+    train = train[train["target_text"].str.strip().astype(bool)]
+    n_dropped = n_before - len(train)
+    if n_dropped:
+        logger.info("Dropped %d rows with missing/empty target_text", n_dropped)
+
     # ── Add fold column (GroupKFold by text_id to prevent tablet leakage) ──
     split_cfg = data_cfg["splits"]
     folds = FoldConfig(
