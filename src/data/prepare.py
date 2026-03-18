@@ -91,6 +91,27 @@ def main() -> None:
 
     # ── Load train data ──
     train_df = read_csv(data_cfg["paths"]["train_csv"])
+
+    # ── Fix truncated transliterations using published_texts ──
+    pt_path = data_cfg["paths"].get("published_texts_csv")
+    if pt_path and Path(pt_path).exists():
+        pt_df = pd.read_csv(pt_path)
+        id_col = data_cfg["columns"].get("id", "oare_id")
+        src_col = data_cfg["columns"]["source"]
+        if id_col in pt_df.columns and src_col in pt_df.columns:
+            pt_map = pt_df.set_index(id_col)[src_col].dropna().to_dict()
+            n_fixed = 0
+            for idx, row in train_df.iterrows():
+                rid = row[id_col]
+                if rid in pt_map:
+                    full = pt_map[rid]
+                    cur = str(row[src_col])
+                    if len(full) > len(cur) + 10:
+                        train_df.at[idx, src_col] = full
+                        n_fixed += 1
+            if n_fixed:
+                logger.info("Fixed %d truncated transliterations from published_texts", n_fixed)
+
     columns = ColumnConfig(
         source=data_cfg["columns"]["source"],
         target=data_cfg["columns"].get("target"),
