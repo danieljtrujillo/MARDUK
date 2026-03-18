@@ -65,11 +65,11 @@
   .header {
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border);
-    padding: 12px 24px;
+    padding: 8px 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
   }
 
   .header-left {
@@ -167,8 +167,8 @@
   }
 
   .tab-btn {
-    padding: 10px 20px;
-    font-size: 13px;
+    padding: 8px 14px;
+    font-size: 12px;
     font-weight: 500;
     color: var(--text-muted);
     background: none;
@@ -186,7 +186,7 @@
   .tab-content {
     flex: 1;
     overflow-y: auto;
-    padding: 20px;
+    padding: 16px;
   }
 
   .tab-pane { display: none; }
@@ -245,7 +245,7 @@
   .metrics-bar {
     background: var(--bg-secondary);
     border-top: 1px solid var(--border);
-    padding: 8px 24px;
+    padding: 6px 20px;
     display: flex;
     align-items: center;
     gap: 24px;
@@ -1285,17 +1285,17 @@
             <div class="voice-header">
               <div class="voice-title">
                 <span class="cuneiform-glyph">𒀭</span>
-                Voice of Mesopotamia
+                Voice of Marduk
                 <span class="cuneiform-glyph">𒈗</span>
               </div>
-              <div class="voice-subtitle">Speak English — Hear Akkadian — See Cuneiform</div>
+              <div class="voice-subtitle">Address Marduk through his scribe — Speak English — Hear Akkadian</div>
             </div>
 
             <!-- Chat Messages Area -->
             <div class="voice-messages" id="voice-messages">
               <div class="voice-msg system-msg">
                 <div class="msg-cuneiform">𒀭𒈗𒌑𒈠</div>
-                <div class="msg-text">Welcome, scribe. Speak, and the ancient tongue shall answer.</div>
+                <div class="msg-text">Šamaš-iddina, scribe of Marduk, awaits your words. Speak, and the lord of Babylon shall answer.</div>
               </div>
             </div>
 
@@ -1875,36 +1875,36 @@ const LATIN_TO_CUNEIFORM = {
 
 const SCRIBE = {
   name: 'Šamaš-iddina',
-  title: 'ṭupšar Šamaš ša Sippar',
-  titleEng: 'Scribe of Šamaš, of Sippar',
+  title: 'ṭupšar Marduk ša Bābili',
+  titleEng: 'Scribe of Marduk, of Babylon',
 
   // Greeting intros the scribe prepends
   intros: [
     { akk: 'šulmānu ana kâši.', eng: 'Peace be upon you.' },
-    { akk: 'lū šulmu ana kâši, anāku Šamaš-iddina, ṭupšarru.', eng: 'May there be well-being for you — I am Šamaš-iddina, the scribe.' },
-    { akk: 'ana pānīka lū šulmu.', eng: 'Before you, let there be peace.' },
+    { akk: 'lū šulmu ana kâši, anāku Šamaš-iddina, ṭupšar Marduk.', eng: 'May there be well-being for you — I am Šamaš-iddina, scribe of Marduk.' },
+    { akk: 'ana pānīka lū šulmu. Marduk bēlī iqbī ana kâši.', eng: 'Before you, let there be peace. My lord Marduk sends word to you.' },
   ],
 
   responses: {
     greeting: [
-      { akk: 'lū šulmu ana kâši, nakrum. anāku Šamaš-iddina, ṭupšar Šamaš ša Sippar. awâtka ašme — dabāb, u anāku lu ašappar.',
-        eng: 'May there be well-being for you, stranger. I am Šamaš-iddina, scribe of the sun god Šamaš, in the city of Sippar. I hear your words — speak, and I shall answer.' },
-      { akk: 'šulmu! ilū rabûtum likrubūka. mīnam tašâl? ṭuppu u qan ṭuppi ina qātīya — ša taqabbû lu ašaṭṭar.',
-        eng: 'Greetings! May the great gods bless you. What do you ask? The tablet and stylus are in my hand — what you speak, I shall inscribe.' },
-      { akk: 'ana balāṭika lū šulmu. ina bīt Šamaš wašbāku, u ana kâši ašappar. mīnam taqabbî?',
-        eng: 'For your life, may there be well-being. I reside in the temple of Šamaš, and I send word to you. What do you say?' },
+      { akk: 'lū šulmu ana kâši, nakrum. anāku Šamaš-iddina, ṭupšar Marduk bēl Bābili. awâtka ana Marduk ušēbil — dabāb, u bēlī lu ušannīka.',
+        eng: 'May there be well-being for you, stranger. I am Šamaš-iddina, scribe of Marduk, lord of Babylon. I carry your words to Marduk — speak, and my lord shall answer through me.' },
+      { akk: 'šulmu! Marduk bēl ilī ikrubka. mīnam tašâl? ṭuppu u qan ṭuppi ina qātīya — awât Marduk ana kâši lu ašaṭṭar.',
+        eng: 'Greetings! Marduk, lord of the gods, has blessed you. What do you ask? The tablet and stylus are in my hand — the words of Marduk I shall inscribe for you.' },
+      { akk: 'ana balāṭika lū šulmu. ina Esagila ša Marduk wašbāku, u awât bēlīya ana kâši ašappar. mīnam taqabbî?',
+        eng: 'For your life, may there be well-being. I dwell in Esagila, the temple of Marduk, and I send my lord\'s words to you. What do you say?' },
     ],
 
     farewell: [
-      { akk: 'ina šulmi alik. ilū lū iddinūkum balāṭam dāriam. ṭuppu annûm gamru.',
-        eng: 'Go in peace. May the gods grant you eternal life. This tablet is finished.' },
-      { akk: 'lū šulmu ittīka, adi pānīka amāru. Šamaš u Aya likrubūka ina ḫarrānika.',
-        eng: 'May there be peace with you, until I see your face again. May Šamaš and Aya bless you on your journey.' },
+      { akk: 'ina šulmi alik. Marduk bēl Bābili lū iddinūkum balāṭam dāriam. ṭuppu annûm gamru.',
+        eng: 'Go in peace. May Marduk, lord of Babylon, grant you eternal life. This tablet is finished.' },
+      { akk: 'lū šulmu ittīka, adi pānīka amāru. Marduk u Zarpānītum likrubūka ina ḫarrānika.',
+        eng: 'May there be peace with you, until I see your face again. May Marduk and Zarpānītum bless you on your journey.' },
     ],
 
     thanks: [
-      { akk: 'gamil awâtīka, u libbī iṭīb. kīma ṭupšarri ša Šamaš, awâtum damqātum ana libbīya irrubā.',
-        eng: 'Your words are gracious, and my heart is glad. As a scribe of Šamaš, good words enter my heart.' },
+      { akk: 'gamil awâtīka, u libbī iṭīb. bēlī Marduk iḫdî ana awâtīka damqātim — kaspam u krūmātim liddīnkūm.',
+        eng: 'Your words are gracious, and my heart is glad. My lord Marduk rejoices at your fine words — may he grant you silver and abundance.' },
     ],
 
     trade: [
@@ -1992,15 +1992,15 @@ const SCRIBE = {
     ],
 
     question: [
-      { akk: 'mīnam tašâl? anāku ṭupšar Šamaš — awâtum ša māt Šumerim u Akkadim ina libbīya šaknā. ša kaspim, ša ilī, ša šarri, ša dīnim — šuˀˀil, u anāku lu ašappar. qan ṭuppi ina qātīya — ṭuppam lu ašṭur.',
-        eng: 'What do you ask? I am the scribe of Šamaš — the knowledge of the lands of Sumer and Akkad is set within me. Concerning silver, concerning the gods, concerning the king, concerning the law — ask, and I shall send word. The stylus is in my hand — I shall write the tablet.' },
-      { akk: 'awâtka ašme, u libbī iḫdî ana turrim. anāku Šamaš-iddina — ina bīt ṭuppi ša Sippar almad awâtim ša ūm pānā. mīnam ana kâšim lu aqabbī? šuˀˀil šanîam, u lu ašappar.',
-        eng: 'I have heard your words, and my heart rejoices to answer. I am Šamaš-iddina — in the scribal school of Sippar, I learned the words of ancient days. What shall I say to you? Ask another question, and I shall respond.' },
+      { akk: 'mīnam tašâl? anāku ṭupšar Marduk — awâtum ša māt Šumerim u Akkadim ina libbīya šaknā. ša kaspim, ša ilī, ša šarri, ša dīnim — šuˀˀil, u Marduk ina pīya lu ušannīka. qan ṭuppi ina qātīya — awât Marduk lu ašṭur.',
+        eng: 'What do you ask? I am the scribe of Marduk — the knowledge of the lands of Sumer and Akkad is set within me. Concerning silver, concerning the gods, concerning the king, concerning the law — ask, and Marduk shall answer through my voice. The stylus is in my hand — I shall write the words of Marduk.' },
+      { akk: 'awâtka ašme, u ana Marduk bēlīya ušēbil. bēlī iḫdî ana turrim. mīnam ana kâšim lu aqabbī? šuˀˀil šanîam, u Marduk lu ušannīka.',
+        eng: 'I have heard your words, and I convey them to my lord Marduk. My lord rejoices to answer. What shall I say to you? Ask another question, and Marduk shall respond through me.' },
     ],
 
     identity: [
-      { akk: 'anāku Šamaš-iddina mār Ibni-Šamaš, ṭupšar bīt Šamaš ša Sippar. abī ṭupšarram ilammad, u abī abīya ṭupšarram ilammad. ina bīt ṭuppi ša Sippar — Šumeriam u Akkadiam u ḫisāb kaspim u šeˀim almad. ṭuppī tešemmē — anāku aššaṭṭar.',
-        eng: 'I am Šamaš-iddina, son of Ibni-Šamaš, scribe of the temple of Šamaš in Sippar. My father learned to be a scribe, and my father\'s father learned to be a scribe. In the scribal school of Sippar, I studied Sumerian and Akkadian and the reckoning of silver and barley. You hear my tablets — and I inscribe them.' },
+      { akk: 'anāku Šamaš-iddina mār Ibni-Šamaš, ṭupšar Marduk bēl Bābili. abī ṭupšarram ilammad, u abī abīya ṭupšarram ilammad. ina Esagila ša Marduk — Šumeriam u Akkadiam almad. anāku pû ša Marduk — awât bēlīya ina pīya ašakkan.',
+        eng: 'I am Šamaš-iddina, son of Ibni-Šamaš, scribe of Marduk, lord of Babylon. My father learned to be a scribe, and my father\'s father learned to be a scribe. In Esagila, the temple of Marduk, I studied Sumerian and Akkadian. I am the mouth of Marduk — I set my lord\'s words upon my lips.' },
     ],
 
     weather: [
@@ -2183,46 +2183,90 @@ function initSpeechRecognition() {
   if (!SpeechRecognition) return null;
   const recognition = new SpeechRecognition();
   recognition.lang = 'en-US';
-  recognition.interimResults = false;
+  recognition.interimResults = true;
   recognition.maxAlternatives = 1;
-  recognition.continuous = false;
+  recognition.continuous = true;
   return recognition;
 }
 
-function addVoiceMessage(type, text, cuneiform, romanization) {
+// ── Typewriter effect for text elements ──
+function typewriterEffect(element, text, msPerChar, callback) {
+  element.textContent = '';
+  let i = 0;
+  function tick() {
+    if (i < text.length) {
+      element.textContent += text[i];
+      i++;
+      // Scroll parent into view
+      const container = document.getElementById('voice-messages');
+      if (container) container.scrollTop = container.scrollHeight;
+      setTimeout(tick, msPerChar);
+    } else if (callback) {
+      callback();
+    }
+  }
+  tick();
+}
+
+function addVoiceMessage(type, text, cuneiform, romanization, animate) {
   const container = document.getElementById('voice-messages');
   const msg = document.createElement('div');
   msg.className = 'voice-msg ' + type + '-msg';
 
+  let cDiv = null;
   if (cuneiform && document.getElementById('voice-show-cuneiform').checked) {
-    const cDiv = document.createElement('div');
+    cDiv = document.createElement('div');
     cDiv.className = 'msg-cuneiform';
-    cDiv.textContent = cuneiform;
     msg.appendChild(cDiv);
   }
 
   const tDiv = document.createElement('div');
   tDiv.className = 'msg-text';
-  tDiv.textContent = text;
   msg.appendChild(tDiv);
 
+  let rDiv = null;
   if (romanization) {
-    const rDiv = document.createElement('div');
+    rDiv = document.createElement('div');
     rDiv.className = 'msg-romanization';
-    rDiv.textContent = romanization;
     msg.appendChild(rDiv);
   }
 
   container.appendChild(msg);
   container.scrollTop = container.scrollHeight;
+
+  if (animate && type === 'bot') {
+    // Typewriter: cuneiform at ~80ms/char, text at ~25ms/char, romanization at ~20ms/char
+    const startCuneiform = () => {
+      if (cDiv && cuneiform) {
+        typewriterEffect(cDiv, cuneiform, 80, startText);
+      } else {
+        startText();
+      }
+    };
+    const startText = () => {
+      typewriterEffect(tDiv, text, 25, startRoman);
+    };
+    const startRoman = () => {
+      if (rDiv && romanization) {
+        typewriterEffect(rDiv, romanization, 20, null);
+      }
+    };
+    startCuneiform();
+  } else {
+    // Instant (user messages, system messages)
+    if (cDiv) cDiv.textContent = cuneiform;
+    tDiv.textContent = text;
+    if (rDiv) rDiv.textContent = romanization;
+  }
 }
 
 function updateCuneiformDisplay(cuneiform, roman) {
-  const display = document.getElementById('cuneiform-display');
   const textEl = document.getElementById('cuneiform-text');
   const romanEl = document.getElementById('cuneiform-roman');
-  textEl.textContent = cuneiform || '𒀀𒈾𒆪';
-  romanEl.textContent = roman || '';
+  // Typewriter the big cuneiform display too
+  typewriterEffect(textEl, cuneiform || '𒀀𒈾𒆪', 100, () => {
+    typewriterEffect(romanEl, roman || '', 30, null);
+  });
 }
 
 function speakVoiceResponse(text, lang, callback) {
@@ -2311,10 +2355,36 @@ function toggleVoiceChat() {
       return;
     }
 
+    // Debounced result handler: waits for silence before sending
+    let voiceSilenceTimer = null;
+    let voiceAccumulated = '';
     voiceRecognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      isVoiceRecording = false;
-      handleVoiceInput(transcript);
+      // Accumulate all final + interim results
+      let finalText = '';
+      let interimText = '';
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalText += event.results[i][0].transcript + ' ';
+        } else {
+          interimText += event.results[i][0].transcript + ' ';
+        }
+      }
+      voiceAccumulated = (finalText + interimText).trim();
+
+      // Show interim status
+      const statusEl = document.getElementById('voice-status');
+      statusEl.textContent = '🎙 ' + voiceAccumulated.substring(0, 60) + (voiceAccumulated.length > 60 ? '...' : '');
+
+      // Reset the silence timer — wait 2.5s of silence before sending
+      if (voiceSilenceTimer) clearTimeout(voiceSilenceTimer);
+      voiceSilenceTimer = setTimeout(() => {
+        if (voiceAccumulated && isVoiceRecording) {
+          isVoiceRecording = false;
+          voiceRecognition.stop();
+          handleVoiceInput(voiceAccumulated);
+          voiceAccumulated = '';
+        }
+      }, 2500);
     };
 
     voiceRecognition.onerror = (event) => {
@@ -2345,9 +2415,9 @@ function toggleVoiceChat() {
 function handleVoiceInput(transcript) {
   setVoiceState('processing');
 
-  // Show user's message with cuneiform transliteration
+  // Show user's message (instant, no typewriter for user msgs)
   const userCuneiform = textToFakeCuneiform(transcript);
-  addVoiceMessage('user', transcript, userCuneiform, null);
+  addVoiceMessage('user', transcript, userCuneiform, null, false);
 
   // Pick a full conversational response from the scribe's knowledge
   const { akk, eng, wantsCorpus, searchHint } = pickScribeResponse(transcript);
@@ -2373,7 +2443,7 @@ function handleVoiceInput(transcript) {
 
   function deliverResponse(response) {
     updateCuneiformDisplay(response.cuneiform, response.akk);
-    addVoiceMessage('bot', response.eng, response.cuneiform, response.akk);
+    addVoiceMessage('bot', response.eng, response.cuneiform, response.akk, true);
 
     const mode = document.getElementById('voice-response-mode').value;
     setVoiceState('speaking');
