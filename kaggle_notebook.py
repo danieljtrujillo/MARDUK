@@ -1,10 +1,10 @@
 # MARDUK – Akkadian → English Neural Translation
 # Competition: Deep Past Initiative – Machine Translation (Kaggle)
 #
-# This notebook loads a fine-tuned ByT5-base model (v5_detrunc, Score=41.22)
+# This notebook loads a fine-tuned ByT5-base model (v2 clean, val=43.26)
 # and generates translations for the test set.
 #
-# Model: google/byt5-base fine-tuned on 8,480 Akkadian-English pairs with TGT_MAX=256
+# Model: google/byt5-base retrained on clean data (no augmented), TGT_MAX=256
 # Data source: theskateborg/marduk-model-download (Kaggle kernel output)
 # Architecture: Byte-level Seq2Seq with dual-view (raw + normalized) input packing
 
@@ -61,13 +61,16 @@ else:
     TEST_CSV = Path("/kaggle/input/deep-past-initiative-machine-translation/test.csv")
 OUTPUT_CSV = Path("/kaggle/working/submission.csv")
 
-# Generation parameters (grid-searched optimal)
+# Generation parameters — match training eval config that scored val=43.26
 SRC_MAX = 1024
 TGT_MAX = 256
-NUM_BEAMS = 3
-LENGTH_PENALTY = 1.2
-NO_REPEAT_NGRAM = 20
+NUM_BEAMS = 5
 BATCH_SIZE = 4
+
+# MBR self-ensemble parameters
+MBR_SAMPLES = 20       # number of diverse candidates per input
+MBR_TEMPERATURE = 0.8  # sampling temperature for diversity
+MBR_TOP_P = 0.92       # nucleus sampling threshold
 
 # %% [markdown]
 # ## 2. Preprocessing – Akkadian Normalization & Dual-View Packing
@@ -183,13 +186,122 @@ if "text_id" in test_df.columns:
 print(f"\nSample input:\n{packed_sources[0][:200]}...")
 
 # %% [markdown]
-# ## 5. Generate Translations
+# ## 5. Generate Translations (MBR Self-Ensemble)
 
 # %%
+# ── Inline chrF++ scorer (no external deps) ──
+from collections import Counter
+
+def _extract_char_ngrams(text: str, n: int) -> Counter:
+    """Extract character n-grams from text."""
+    return Counter(text[i:i+n] for i in range(len(text) - n + 1))
+
+def _extract_word_ngrams(text: str, n: int) -> Counter:
+    """Extract word n-grams from text."""
+    words = text.split()
+    return Counter(tuple(words[i:i+n]) for i in range(len(words) - n + 1))
+
+def chrf_score(hypothesis: str, reference: str,
+               char_order: int = 6, word_order: int = 2,
+               beta: float = 2.0) -> float:
+    """Compute chrF++ between two strings.
+    
+    chrF++ uses character n-grams (1..char_order) + word n-grams (1..word_order).
+    F_beta with beta=2 weights recall twice as much as precision.
+    """
+    if not hypothesis and not reference:
+        return 1.0
+    if not hypothesis or not reference:
+        return 0.0
+
+    total_precision_num = 0.0
+    total_precision_den = 0.0
+    total_recall_num = 0.0
+    total_recall_den = 0.0
+    n_total = 0
+
+    # Character n-grams
+    for n in range(1, char_order + 1):
+        hyp_ngrams = _extract_char_ngrams(hypothesis, n)
+        ref_ngrams = _extract_char_ngrams(reference, n)
+        if not hyp_ngrams and not ref_ngrams:
+            continue
+        common = sum((hyp_ngrams & ref_ngrams).values())
+        total_precision_num += common
+        total_precision_den += sum(hyp_ngrams.values())
+        total_recall_num += common
+        total_recall_den += sum(ref_ngrams.values())
+        n_total += 1
+
+    # Word n-grams (the ++ in chrF++)
+    for n in range(1, word_order + 1):
+        hyp_ngrams = _extract_word_ngrams(hypothesis, n)
+        ref_ngrams = _extract_word_ngrams(reference, n)
+        if not hyp_ngrams and not ref_ngrams:
+            continue
+        common = sum((hyp_ngrams & ref_ngrams).values())
+        total_precision_num += common
+        total_precision_den += sum(hyp_ngrams.values())
+        total_recall_num += common
+        total_recall_den += sum(ref_ngrams.values())
+        n_total += 1
+
+    if n_total == 0:
+        return 0.0
+
+    precision = total_precision_num / total_precision_den if total_precision_den > 0 else 0.0
+    recall = total_recall_num / total_recall_den if total_recall_den > 0 else 0.0
+
+    if precision + recall == 0:
+        return 0.0
+
+    beta_sq = beta ** 2
+    score = (1 + beta_sq) * precision * recall / (beta_sq * precision + recall)
+    return score * 100  # Scale to 0-100 like sacrebleu
+
+
+def mbr_select(candidates: list[str]) -> tuple[str, float]:
+    """Select the MBR-optimal candidate: the one with highest average chrF++
+    against all other candidates (consensus translation).
+
+    Returns (best_candidate, best_score).
+    """
+    if len(candidates) <= 1:
+        return candidates[0] if candidates else "", 0.0
+
+    # Deduplicate while preserving order
+    seen = set()
+    unique = []
+    for c in candidates:
+        c_stripped = c.strip()
+        if c_stripped not in seen:
+            seen.add(c_stripped)
+            unique.append(c_stripped)
+
+    if len(unique) == 1:
+        return unique[0], 100.0
+
+    n = len(unique)
+    # Compute pairwise chrF++ matrix (symmetric)
+    scores = [[0.0] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(i + 1, n):
+            s = chrf_score(unique[i], unique[j])
+            scores[i][j] = s
+            scores[j][i] = s
+
+    # Average score for each candidate (against all others)
+    avg_scores = [sum(scores[i]) / (n - 1) for i in range(n)]
+    best_idx = max(range(n), key=lambda i: avg_scores[i])
+    return unique[best_idx], avg_scores[best_idx]
+
+
 @torch.no_grad()
-def decode_batch(packed_sources: list[str]) -> list[str]:
+def generate_candidates(packed_source: str) -> list[str]:
+    """Generate diverse translation candidates for one input using
+    beam search + sampling for MBR selection."""
     inputs = tokenizer(
-        packed_sources,
+        [packed_source],
         max_length=SRC_MAX,
         truncation=True,
         padding=True,
@@ -197,45 +309,117 @@ def decode_batch(packed_sources: list[str]) -> list[str]:
     ).to(device)
 
     use_amp = device.type == "cuda" and torch.cuda.is_bf16_supported()
+    candidates = []
+
     with torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_amp):
-        gen_kwargs = dict(
+        # 1) Beam search — get top beam hypotheses
+        beam_out = model.generate(
+            **inputs,
             max_new_tokens=TGT_MAX,
             num_beams=NUM_BEAMS,
-            length_penalty=LENGTH_PENALTY,
+            num_return_sequences=NUM_BEAMS,
             early_stopping=True,
         )
-        if NO_REPEAT_NGRAM > 0:
-            gen_kwargs["no_repeat_ngram_size"] = NO_REPEAT_NGRAM
-        generated = model.generate(**inputs, **gen_kwargs)
+        beam_texts = tokenizer.batch_decode(beam_out, skip_special_tokens=True)
+        candidates.extend(beam_texts)
 
-    return tokenizer.batch_decode(generated, skip_special_tokens=True)
+        # 2) Diverse sampling — get stochastic candidates
+        n_samples = MBR_SAMPLES - NUM_BEAMS
+        if n_samples > 0:
+            sample_out = model.generate(
+                **inputs,
+                max_new_tokens=TGT_MAX,
+                do_sample=True,
+                temperature=MBR_TEMPERATURE,
+                top_p=MBR_TOP_P,
+                num_return_sequences=n_samples,
+            )
+            sample_texts = tokenizer.batch_decode(sample_out, skip_special_tokens=True)
+            candidates.extend(sample_texts)
 
+    return candidates
+
+
+# Generate + MBR-select for each test example
 all_predictions: list[str] = []
-for i in tqdm(range(0, len(packed_sources), BATCH_SIZE), desc="Translating"):
-    batch = packed_sources[i : i + BATCH_SIZE]
-    preds = decode_batch(batch)
-    all_predictions.extend(preds)
+for idx, packed in enumerate(tqdm(packed_sources, desc="MBR Translating")):
+    candidates = generate_candidates(packed)
+    best, score = mbr_select(candidates)
+    all_predictions.append(best)
+    print(f"  Example {idx}: {len(candidates)} candidates, "
+          f"{len(set(c.strip() for c in candidates))} unique, "
+          f"MBR score={score:.1f}")
+    # Show top-3 for sanity check
+    for j, c in enumerate(candidates[:3]):
+        print(f"    [{j}] {c[:120]}...")
 
-print(f"\nGenerated {len(all_predictions)} translations")
+print(f"\nGenerated {len(all_predictions)} translations via MBR self-ensemble")
 
 # %% [markdown]
 # ## 6. Post-Process & Create Submission
 
 # %%
+# ── Gap normalization regex (comprehensive) ──
+_GAP_RE = re.compile(
+    r"<\s*big[\s_\-]*gap\s*>"
+    r"|<\s*gap\s*>"
+    r"|\bbig[\s_\-]*gap\b"
+    r"|\bx(?:\s+x)+\b"
+    r"|\.{3,}|…+|\[\.+\]"
+    r"|\[\s*x\s*\]|\(\s*x\s*\)"
+    r"|(?<!\w)x{2,}(?!\w)"
+    r"|(?<!\w)x(?!\w)"
+    r"|\(\s*large\s+break\s*\)"
+    r"|\(\s*break\s*\)"
+    r"|\(\s*\d+\s+broken\s+lines?\s*\)",
+    re.I
+)
+_PN_RE = re.compile(r"\bPN\b")
+_MULTI_GAP_RE = re.compile(r"(?:<gap>\s*){2,}")
+_REPEAT_WORD_RE = re.compile(r"\b(\w+)(?:\s+\1\b)+")
+_REPEAT_PUNCT_RE = re.compile(r"([.,])\1+")
+_PUNCT_SPACE_RE = re.compile(r"\s+([.,:])") 
+_STRAY_MARKS_RE = re.compile(r'<<[^>]*>>|<(?!gap\b)[^>]*>')
+_MONTH_RE = re.compile(r"\bMonth\s+(XII|XI|X|IX|VIII|VII|VI|V|IV|III|II|I)\b", re.I)
+_ROMAN2INT = {"I":1,"II":2,"III":3,"IV":4,"V":5,"VI":6,"VII":7,"VIII":8,"IX":9,"X":10,"XI":11,"XII":12}
+
+
 def postprocess_translation(text: str) -> str:
     """Clean model output to match expected test format."""
+    if not text:
+        return ""
+
+    # Gap normalization
+    text = _GAP_RE.sub("<gap>", text)
+    text = _PN_RE.sub("<gap>", text)
+    text = _MULTI_GAP_RE.sub("<gap>", text)
+
     # Curly → straight quotes
     text = text.replace("\u201c", '"').replace("\u201d", '"')
     text = text.replace("\u2018", "'").replace("\u2019", "'")
     # En/em dash → hyphen
     text = text.replace("\u2013", "-").replace("\u2014", "-")
-    # Remove any <big_gap> the model might output
-    text = text.replace("<big_gap>", "<gap>")
-    # Deduplicate adjacent <gap>
-    text = re.sub(r"(<gap>)(?:[\s\-]*<gap>)+", r"\1", text)
+
     # Ḫ/ḫ → H/h (not in test translations)
     text = text.replace("\u1e2a", "H").replace("\u1e2b", "h")
-    # Clean whitespace  
+
+    # Stray markup
+    text = _STRAY_MARKS_RE.sub("", text)
+
+    # Month numerals
+    text = _MONTH_RE.sub(lambda m: f"Month {_ROMAN2INT.get(m.group(1).upper(), m.group(1))}", text)
+
+    # Strip forbidden chars while preserving <gap>
+    text = text.replace("<gap>", "\x00GAP\x00")
+    text = text.translate(str.maketrans("", "", '\u2014\u2014<>\u2308\u230b\u230a[]+\u02be;'))
+    text = text.replace("\x00GAP\x00", " <gap> ")
+
+    # Repetition cleanup
+    text = _REPEAT_WORD_RE.sub(r"\1", text)
+    text = _PUNCT_SPACE_RE.sub(r"\1", text)
+    text = _REPEAT_PUNCT_RE.sub(r"\1", text)
+
+    # Clean whitespace
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
