@@ -101,6 +101,22 @@ def main() -> None:
 
     collator = DataCollatorForSeq2Seq(tokenizer, model=model, padding=True)
 
+    # Fast ByT5 decoder: IDs 0=pad, 1=eos, 2=unk; IDs 3-258 map to bytes 0-255
+    _SPECIAL_IDS = {tokenizer.pad_token_id, tokenizer.eos_token_id, tokenizer.unk_token_id}
+
+    def _fast_byt5_decode(ids_batch):
+        """Decode ByT5 token IDs to strings ~100x faster than tokenizer.batch_decode."""
+        results = []
+        for ids in ids_batch:
+            byte_vals = []
+            for tid in ids:
+                tid = int(tid)
+                if tid in _SPECIAL_IDS or tid < 3:
+                    continue  # skip special tokens
+                byte_vals.append(tid - 3)  # ByT5 offset: id 3 = byte 0
+            results.append(bytes(byte_vals).decode("utf-8", errors="replace"))
+        return results
+
     # Metric computation (note: _log_file is set after output_dir below)
     def compute_metrics(eval_pred):
         import time as _t
@@ -119,22 +135,14 @@ def main() -> None:
         _log(f"preds shape={preds.shape}, dtype={preds.dtype}")
         # Replace -100 in labels
         labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
-        # Clip prediction IDs to valid ByT5 range (avoids chr() ValueError)
+        # Clip prediction IDs to valid ByT5 range
         max_id = tokenizer.vocab_size - 1
         preds = np.clip(preds, 0, max_id)
 
-        # Decode in chunks to avoid ByT5 batch_decode hanging on large batches
-        CHUNK = 64
-        _log(f"decoding {len(preds)} preds in chunks of {CHUNK}...")
-        decoded_preds = []
-        for i in range(0, len(preds), CHUNK):
-            decoded_preds.extend(tokenizer.batch_decode(preds[i:i+CHUNK], skip_special_tokens=True))
-            if i % (CHUNK * 4) == 0 and i > 0:
-                _log(f"  decoded {i}/{len(preds)} preds")
-        _log(f"decoding {len(labels)} labels in chunks of {CHUNK}...")
-        decoded_labels = []
-        for i in range(0, len(labels), CHUNK):
-            decoded_labels.extend(tokenizer.batch_decode(labels[i:i+CHUNK], skip_special_tokens=True))
+        _log("fast-decoding preds...")
+        decoded_preds = _fast_byt5_decode(preds)
+        _log("fast-decoding labels...")
+        decoded_labels = _fast_byt5_decode(labels)
 
         _log("computing sacrebleu + chrf...")
         metrics = compute_generation_metrics(decoded_preds, decoded_labels)
@@ -220,17 +228,11 @@ def main() -> None:
     pred_output = trainer.predict(val_ds)
     max_id = tokenizer.vocab_size - 1
     clipped_preds = np.clip(pred_output.predictions, 0, max_id)
-    # Chunked decode to avoid ByT5 batch_decode hang
-    CHUNK = 64
-    preds = []
-    for i in range(0, len(clipped_preds), CHUNK):
-        preds.extend(tokenizer.batch_decode(clipped_preds[i:i+CHUNK], skip_special_tokens=True))
+    preds = _fast_byt5_decode(clipped_preds)
     labels_clean = np.where(
         pred_output.label_ids != -100, pred_output.label_ids, tokenizer.pad_token_id
     )
-    refs = []
-    for i in range(0, len(labels_clean), CHUNK):
-        refs.extend(tokenizer.batch_decode(labels_clean[i:i+CHUNK], skip_special_tokens=True))
+    refs = _fast_byt5_decode(labels_clean)
 
     pred_df = pd.DataFrame({
         "text_id": val_df["text_id"].tolist()[:len(preds)],
