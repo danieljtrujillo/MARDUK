@@ -637,6 +637,139 @@
     .main-area { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
     .tabs-panel { border-right: none; border-bottom: 1px solid var(--border); }
   }
+
+  /* ── Voice Chat Tab ── */
+  @font-face {
+    font-family: 'Noto Sans Cuneiform';
+    src: local('Noto Sans Cuneiform');
+  }
+  .voice-chat-container {
+    display: flex; flex-direction: column; height: 100%; gap: 12px;
+  }
+  .voice-header {
+    text-align: center; padding: 16px 0 8px;
+  }
+  .voice-title {
+    font-size: 1.4em; font-weight: 700; color: var(--gold);
+    letter-spacing: 0.05em;
+  }
+  .voice-subtitle {
+    font-size: 0.82em; color: var(--text-muted); margin-top: 4px;
+  }
+  .cuneiform-glyph {
+    font-family: 'Noto Sans Cuneiform', serif;
+    font-size: 1.1em; margin: 0 6px; opacity: 0.7;
+  }
+  .voice-messages {
+    flex: 1; overflow-y: auto; padding: 8px 12px;
+    display: flex; flex-direction: column; gap: 12px;
+    min-height: 120px; max-height: 320px;
+    background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border);
+  }
+  .voice-msg {
+    padding: 10px 14px; border-radius: 10px; max-width: 85%;
+    animation: msgFadeIn 0.3s ease;
+  }
+  @keyframes msgFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .system-msg {
+    align-self: center; text-align: center;
+    background: var(--bg-tertiary); color: var(--text-secondary);
+    border: 1px solid var(--border); max-width: 90%;
+  }
+  .user-msg {
+    align-self: flex-end;
+    background: var(--accent); color: #fff;
+  }
+  .bot-msg {
+    align-self: flex-start;
+    background: var(--bg-card); color: var(--text-primary);
+    border: 1px solid var(--border);
+  }
+  .msg-cuneiform {
+    font-family: 'Noto Sans Cuneiform', serif;
+    font-size: 1.3em; margin-bottom: 4px; letter-spacing: 0.08em;
+    color: var(--gold); line-height: 1.5;
+  }
+  .msg-text {
+    font-size: 0.88em; line-height: 1.5;
+  }
+  .msg-romanization {
+    font-size: 0.78em; color: var(--text-muted); font-style: italic; margin-top: 2px;
+  }
+  .cuneiform-display {
+    text-align: center; padding: 20px;
+    background: var(--bg-tertiary); border-radius: 10px;
+    border: 1px solid var(--border); min-height: 80px;
+    transition: all 0.3s ease;
+  }
+  .cuneiform-display.speaking {
+    border-color: var(--gold);
+    box-shadow: 0 0 20px rgba(201, 164, 78, 0.2);
+  }
+  .cuneiform-text {
+    font-family: 'Noto Sans Cuneiform', serif;
+    font-size: 2.2em; color: var(--gold); letter-spacing: 0.12em;
+    line-height: 1.6; word-break: break-word;
+  }
+  .cuneiform-romanization {
+    font-size: 0.85em; color: var(--text-muted); margin-top: 6px;
+    font-style: italic;
+  }
+  .voice-controls {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 12px 0;
+  }
+  .voice-record-btn {
+    width: 80px; height: 80px; border-radius: 50%;
+    border: 3px solid var(--gold); background: var(--bg-card);
+    color: var(--gold); cursor: pointer;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 4px;
+    transition: all 0.2s ease; font-size: 0.65em;
+    font-family: var(--font-sans);
+  }
+  .voice-record-btn:hover {
+    background: var(--bg-hover); transform: scale(1.05);
+  }
+  .voice-record-btn.recording {
+    border-color: var(--error); color: var(--error);
+    animation: recordPulse 1.2s ease-in-out infinite;
+  }
+  @keyframes recordPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.4); }
+    50% { box-shadow: 0 0 0 12px rgba(248, 113, 113, 0); }
+  }
+  .voice-record-btn.processing {
+    border-color: var(--accent); color: var(--accent);
+    animation: processPulse 0.8s ease-in-out infinite;
+  }
+  @keyframes processPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .voice-status {
+    font-size: 0.8em; color: var(--text-muted);
+  }
+  .voice-settings {
+    display: flex; gap: 16px; padding: 8px 12px;
+    background: var(--bg-secondary); border-radius: 8px;
+    border: 1px solid var(--border); flex-wrap: wrap;
+  }
+  .voice-setting-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.8em; color: var(--text-secondary);
+  }
+  .voice-setting-item select {
+    background: var(--bg-input); border: 1px solid var(--border);
+    color: var(--text-primary); border-radius: 4px; padding: 3px 6px;
+    font-size: 0.95em; font-family: var(--font-sans);
+  }
+  .voice-setting-item input[type="checkbox"] {
+    accent-color: var(--gold);
+  }
 </style>
 </head>
 <body>
@@ -668,6 +801,7 @@
         <button class="tab-btn" data-tab="train">Train</button>
         <button class="tab-btn" data-tab="inference">Inference</button>
         <button class="tab-btn" data-tab="eval">Evaluate</button>
+        <button class="tab-btn" data-tab="voice">🎙 Voice</button>
       </div>
       <div class="tab-content">
 
@@ -983,6 +1117,64 @@
             </div>
           </div>
           <button class="btn btn-primary btn-run" onclick="runTask('evaluate')">▶ Run Evaluation</button>
+        </div>
+
+        <!-- VOICE CHAT TAB -->
+        <div class="tab-pane" id="tab-voice">
+          <div class="voice-chat-container">
+            <!-- Header -->
+            <div class="voice-header">
+              <div class="voice-title">
+                <span class="cuneiform-glyph">𒀭</span>
+                Voice of Mesopotamia
+                <span class="cuneiform-glyph">𒈗</span>
+              </div>
+              <div class="voice-subtitle">Speak English — Hear Akkadian — See Cuneiform</div>
+            </div>
+
+            <!-- Chat Messages Area -->
+            <div class="voice-messages" id="voice-messages">
+              <div class="voice-msg system-msg">
+                <div class="msg-cuneiform">𒀭𒈗𒌑𒈠</div>
+                <div class="msg-text">Welcome, scribe. Speak, and the ancient tongue shall answer.</div>
+              </div>
+            </div>
+
+            <!-- Cuneiform Display (large, animated) -->
+            <div class="cuneiform-display" id="cuneiform-display">
+              <div class="cuneiform-text" id="cuneiform-text">𒀀𒈾𒆪</div>
+              <div class="cuneiform-romanization" id="cuneiform-roman"></div>
+            </div>
+
+            <!-- Controls -->
+            <div class="voice-controls">
+              <button class="voice-record-btn" id="voice-record-btn" onclick="toggleVoiceChat()">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+                <span id="voice-btn-label">Hold to Speak</span>
+              </button>
+              <div class="voice-status" id="voice-status">Ready</div>
+            </div>
+
+            <!-- Settings -->
+            <div class="voice-settings">
+              <label class="voice-setting-item">
+                <span>Response Mode</span>
+                <select id="voice-response-mode">
+                  <option value="akkadian">Akkadian TTS</option>
+                  <option value="english">English TTS</option>
+                  <option value="both">Both (Akkadian → English)</option>
+                </select>
+              </label>
+              <label class="voice-setting-item">
+                <span>Show Cuneiform</span>
+                <input type="checkbox" id="voice-show-cuneiform" checked>
+              </label>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -1432,6 +1624,297 @@ function speakText(btn, text, lang) {
 if (typeof speechSynthesis !== 'undefined') {
   speechSynthesis.getVoices();
   speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+}
+
+// ── Voice Chat Engine ──
+// Latin → Cuneiform approximate transliteration map (syllabary)
+const LATIN_TO_CUNEIFORM = {
+  'a': '𒀀', 'e': '𒂊', 'i': '𒄿', 'u': '𒌑',
+  'ba': '𒁀', 'be': '𒁉', 'bi': '𒁉', 'bu': '𒁍',
+  'da': '𒁕', 'de': '𒁲', 'di': '𒁲', 'du': '𒁺',
+  'ga': '𒂵', 'ge': '𒄀', 'gi': '𒄀', 'gu': '𒄖',
+  'ha': '𒄩', 'he': '𒄭', 'hi': '𒄭', 'hu': '𒄷',
+  'ka': '𒅗', 'ke': '𒆠', 'ki': '𒆠', 'ku': '𒆪',
+  'la': '𒆷', 'le': '𒇷', 'li': '𒇷', 'lu': '𒇻',
+  'ma': '𒈠', 'me': '𒈨', 'mi': '𒈪', 'mu': '𒈬',
+  'na': '𒈾', 'ne': '𒉈', 'ni': '𒉌', 'nu': '𒉡',
+  'pa': '𒉺', 'pe': '𒉿', 'pi': '𒉿', 'pu': '𒁍',
+  'ra': '𒊏', 're': '𒊑', 'ri': '𒊑', 'ru': '𒊒',
+  'sa': '𒊓', 'se': '𒊺', 'si': '𒊺', 'su': '𒋢',
+  'sha': '𒊮', 'she': '𒊺', 'shi': '𒊺', 'shu': '𒋗',
+  'ta': '𒋫', 'te': '𒋼', 'ti': '𒋾', 'tu': '𒌅',
+  'za': '𒍝', 'ze': '𒍣', 'zi': '𒍣', 'zu': '𒍪',
+  'an': '𒀭', 'en': '𒂗', 'in': '𒅔', 'un': '𒌦',
+  'ar': '𒅈', 'er': '𒅕', 'ir': '𒅕', 'ur': '𒌨',
+  'al': '𒀠', 'el': '𒂖', 'il': '𒅋', 'ul': '𒌌',
+  'am': '𒄠', 'em': '𒅎', 'im': '𒅎', 'um': '𒌝',
+  'at': '𒀜', 'et': '𒂗', 'it': '𒀜', 'ut': '𒌓',
+  'ab': '𒀊', 'ib': '𒅁', 'ub': '𒌒',
+  'ad': '𒀜', 'id': '𒀜', 'ud': '𒌓',
+  'ag': '𒀝', 'ig': '𒅅', 'ug': '𒊌',
+  'ak': '𒀝', 'ik': '𒅅', 'uk': '𒊌',
+  'ash': '𒀸', 'ish': '𒅖', 'ush': '𒍑',
+};
+
+// Akkadian greeting phrases for conversational responses
+const AKKADIAN_RESPONSES = {
+  greetings: [
+    { akk: 'šulmānu ana kâši', eng: 'Peace be upon you', cuneiform: '𒋗𒌌𒈠𒉡 𒀀𒈾 𒅗𒀀𒅆' },
+    { akk: 'lū šulmu ana kâši', eng: 'May there be well-being for you', cuneiform: '𒇻 𒋗𒌌𒈬 𒀀𒈾 𒅗𒀀𒅆' },
+    { akk: 'ilū likrubūka', eng: 'May the gods bless you', cuneiform: '𒀭𒇻 𒇷𒆪𒊒𒁍𒅗' },
+  ],
+  farewell: [
+    { akk: 'ina šulmi alik', eng: 'Go in peace', cuneiform: '𒅔𒈾 𒋗𒌌𒈪 𒀀𒇷𒆪' },
+    { akk: 'ilū lū ittīka', eng: 'May the gods be with you', cuneiform: '𒀭𒇻 𒇻 𒀜𒋾𒅗' },
+  ],
+  thanks: [
+    { akk: 'šulmu attā', eng: 'You are well / Thank you', cuneiform: '𒋗𒌌𒈬 𒀜𒋫' },
+  ],
+  default: [
+    { akk: 'awātka ašme', eng: 'I have heard your words', cuneiform: '𒀀𒉿𒀜𒅗 𒀸𒈨' },
+    { akk: 'ina libbi ālim šuātu', eng: 'In the heart of that city', cuneiform: '𒅔𒈾 𒇷𒁉 𒀀𒇷𒅎 𒋗𒀀𒌅' },
+    { akk: 'ṭuppu annû šaṭir', eng: 'This tablet is written', cuneiform: '𒌅𒁍 𒀭𒉡 𒊮𒋾𒊑' },
+    { akk: 'šarrum dannum iqbi', eng: 'The mighty king has spoken', cuneiform: '𒊮𒊒𒌝 𒁕𒉡𒌝 𒅅𒁉' },
+    { akk: 'awīlum šū ana bītim illik', eng: 'That man went to the house', cuneiform: '𒀀𒉿𒇻𒌝 𒋗 𒀀𒈾 𒁉𒋾𒅎 𒅋𒇷𒆪' },
+    { akk: 'ina ūm annîm', eng: 'On this day', cuneiform: '𒅔𒈾 𒌓𒅎 𒀭𒉌𒅎' },
+  ],
+};
+
+function textToFakeCuneiform(text) {
+  const lower = text.toLowerCase().replace(/[^a-z\s]/g, '');
+  const words = lower.split(/\s+/).filter(Boolean);
+  return words.map(word => {
+    let result = '';
+    let i = 0;
+    while (i < word.length) {
+      // Try 3-char, then 2-char, then 1-char
+      if (i + 2 < word.length && LATIN_TO_CUNEIFORM[word.substring(i, i + 3)]) {
+        result += LATIN_TO_CUNEIFORM[word.substring(i, i + 3)];
+        i += 3;
+      } else if (i + 1 < word.length && LATIN_TO_CUNEIFORM[word.substring(i, i + 2)]) {
+        result += LATIN_TO_CUNEIFORM[word.substring(i, i + 2)];
+        i += 2;
+      } else if (LATIN_TO_CUNEIFORM[word[i]]) {
+        result += LATIN_TO_CUNEIFORM[word[i]];
+        i++;
+      } else {
+        i++; // skip unmapped chars
+      }
+    }
+    return result || '𒀀';
+  }).join(' ');
+}
+
+function pickResponse(userText) {
+  const lower = userText.toLowerCase();
+  if (/\b(hello|hi|hey|greetings|good\s*(morning|evening|day)|salaam)\b/.test(lower)) {
+    return AKKADIAN_RESPONSES.greetings[Math.floor(Math.random() * AKKADIAN_RESPONSES.greetings.length)];
+  }
+  if (/\b(bye|goodbye|farewell|see\s*you|later|goodnight)\b/.test(lower)) {
+    return AKKADIAN_RESPONSES.farewell[Math.floor(Math.random() * AKKADIAN_RESPONSES.farewell.length)];
+  }
+  if (/\b(thanks?|thank\s*you|grateful)\b/.test(lower)) {
+    return AKKADIAN_RESPONSES.thanks[Math.floor(Math.random() * AKKADIAN_RESPONSES.thanks.length)];
+  }
+  return AKKADIAN_RESPONSES.default[Math.floor(Math.random() * AKKADIAN_RESPONSES.default.length)];
+}
+
+let voiceRecognition = null;
+let isVoiceRecording = false;
+
+function initSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return null;
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'en-US';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  recognition.continuous = false;
+  return recognition;
+}
+
+function addVoiceMessage(type, text, cuneiform, romanization) {
+  const container = document.getElementById('voice-messages');
+  const msg = document.createElement('div');
+  msg.className = 'voice-msg ' + type + '-msg';
+
+  if (cuneiform && document.getElementById('voice-show-cuneiform').checked) {
+    const cDiv = document.createElement('div');
+    cDiv.className = 'msg-cuneiform';
+    cDiv.textContent = cuneiform;
+    msg.appendChild(cDiv);
+  }
+
+  const tDiv = document.createElement('div');
+  tDiv.className = 'msg-text';
+  tDiv.textContent = text;
+  msg.appendChild(tDiv);
+
+  if (romanization) {
+    const rDiv = document.createElement('div');
+    rDiv.className = 'msg-romanization';
+    rDiv.textContent = romanization;
+    msg.appendChild(rDiv);
+  }
+
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+}
+
+function updateCuneiformDisplay(cuneiform, roman) {
+  const display = document.getElementById('cuneiform-display');
+  const textEl = document.getElementById('cuneiform-text');
+  const romanEl = document.getElementById('cuneiform-roman');
+  textEl.textContent = cuneiform || '𒀀𒈾𒆪';
+  romanEl.textContent = roman || '';
+}
+
+function speakVoiceResponse(text, lang, callback) {
+  const utterance = new SpeechSynthesisUtterance();
+  const display = document.getElementById('cuneiform-display');
+
+  if (lang === 'akkadian') {
+    utterance.text = akkadianToPhonetic(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.55;
+    utterance.pitch = 0.75;
+    const voices = speechSynthesis.getVoices();
+    const preferred = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Google US English', 'Microsoft Mark'];
+    for (const name of preferred) {
+      const v = voices.find(v => v.name.includes(name));
+      if (v) { utterance.voice = v; break; }
+    }
+  } else {
+    utterance.text = text;
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
+  }
+
+  display.classList.add('speaking');
+  utterance.onend = () => {
+    display.classList.remove('speaking');
+    if (callback) callback();
+  };
+  utterance.onerror = () => {
+    display.classList.remove('speaking');
+    if (callback) callback();
+  };
+
+  speechSynthesis.speak(utterance);
+}
+
+function setVoiceState(state) {
+  const btn = document.getElementById('voice-record-btn');
+  const label = document.getElementById('voice-btn-label');
+  const status = document.getElementById('voice-status');
+
+  btn.classList.remove('recording', 'processing');
+
+  switch (state) {
+    case 'ready':
+      label.textContent = 'Tap to Speak';
+      status.textContent = 'Ready';
+      break;
+    case 'recording':
+      btn.classList.add('recording');
+      label.textContent = 'Listening...';
+      status.textContent = '🎙 Speak now...';
+      break;
+    case 'processing':
+      btn.classList.add('processing');
+      label.textContent = 'Thinking...';
+      status.textContent = 'Processing...';
+      break;
+    case 'speaking':
+      btn.classList.add('processing');
+      label.textContent = 'Speaking...';
+      status.textContent = '🔊 Akkadian response...';
+      break;
+    case 'error':
+      label.textContent = 'Tap to Speak';
+      status.textContent = '⚠ Microphone access required';
+      break;
+  }
+}
+
+function toggleVoiceChat() {
+  if (isVoiceRecording) {
+    // Stop recording
+    if (voiceRecognition) voiceRecognition.stop();
+    isVoiceRecording = false;
+    setVoiceState('ready');
+    return;
+  }
+
+  if (!voiceRecognition) {
+    voiceRecognition = initSpeechRecognition();
+    if (!voiceRecognition) {
+      setVoiceState('error');
+      addVoiceMessage('system', 'Speech recognition not supported in this browser. Try Chrome or Edge.', null, null);
+      return;
+    }
+
+    voiceRecognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      isVoiceRecording = false;
+      handleVoiceInput(transcript);
+    };
+
+    voiceRecognition.onerror = (event) => {
+      isVoiceRecording = false;
+      if (event.error === 'no-speech') {
+        setVoiceState('ready');
+        addVoiceMessage('system', 'No speech detected. Tap the button and speak.', null, null);
+      } else if (event.error === 'not-allowed') {
+        setVoiceState('error');
+      } else {
+        setVoiceState('ready');
+      }
+    };
+
+    voiceRecognition.onend = () => {
+      if (isVoiceRecording) {
+        isVoiceRecording = false;
+        setVoiceState('ready');
+      }
+    };
+  }
+
+  isVoiceRecording = true;
+  setVoiceState('recording');
+  voiceRecognition.start();
+}
+
+function handleVoiceInput(transcript) {
+  setVoiceState('processing');
+
+  // Show user's message with cuneiform transliteration
+  const userCuneiform = textToFakeCuneiform(transcript);
+  addVoiceMessage('user', transcript, userCuneiform, null);
+
+  // Pick a response
+  const response = pickResponse(transcript);
+
+  // Update big cuneiform display
+  updateCuneiformDisplay(response.cuneiform, response.akk);
+
+  // Show bot response
+  addVoiceMessage('bot', response.eng, response.cuneiform, response.akk);
+
+  // Speak the response based on mode
+  const mode = document.getElementById('voice-response-mode').value;
+  setVoiceState('speaking');
+
+  if (mode === 'akkadian') {
+    speakVoiceResponse(response.akk, 'akkadian', () => setVoiceState('ready'));
+  } else if (mode === 'english') {
+    speakVoiceResponse(response.eng, 'english', () => setVoiceState('ready'));
+  } else { // both
+    speakVoiceResponse(response.akk, 'akkadian', () => {
+      speakVoiceResponse(response.eng, 'english', () => setVoiceState('ready'));
+    });
+  }
 }
 
 // ── API calls ──
