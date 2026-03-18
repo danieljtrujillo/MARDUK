@@ -110,8 +110,11 @@ def main() -> None:
         def _log(msg):
             line = f"[compute_metrics +{_t.time()-_t0:.1f}s] {msg}"
             print(line, flush=True)
-            with open(_log_file, "a") as f:
-                f.write(line + "\n")
+            try:
+                with open(_log_file, "a") as f:
+                    f.write(line + "\n")
+            except Exception:
+                pass
 
         _log(f"preds shape={preds.shape}, dtype={preds.dtype}")
         # Replace -100 in labels
@@ -119,10 +122,20 @@ def main() -> None:
         # Clip prediction IDs to valid ByT5 range (avoids chr() ValueError)
         max_id = tokenizer.vocab_size - 1
         preds = np.clip(preds, 0, max_id)
-        _log("decoding preds...")
-        decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
-        _log("decoding labels...")
-        decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+        # Decode in chunks to avoid ByT5 batch_decode hanging on large batches
+        CHUNK = 64
+        _log(f"decoding {len(preds)} preds in chunks of {CHUNK}...")
+        decoded_preds = []
+        for i in range(0, len(preds), CHUNK):
+            decoded_preds.extend(tokenizer.batch_decode(preds[i:i+CHUNK], skip_special_tokens=True))
+            if i % (CHUNK * 4) == 0 and i > 0:
+                _log(f"  decoded {i}/{len(preds)} preds")
+        _log(f"decoding {len(labels)} labels in chunks of {CHUNK}...")
+        decoded_labels = []
+        for i in range(0, len(labels), CHUNK):
+            decoded_labels.extend(tokenizer.batch_decode(labels[i:i+CHUNK], skip_special_tokens=True))
+
         _log("computing sacrebleu + chrf...")
         metrics = compute_generation_metrics(decoded_preds, decoded_labels)
         # Competition score = sqrt(BLEU * chrF++)
@@ -207,11 +220,17 @@ def main() -> None:
     pred_output = trainer.predict(val_ds)
     max_id = tokenizer.vocab_size - 1
     clipped_preds = np.clip(pred_output.predictions, 0, max_id)
-    preds = tokenizer.batch_decode(clipped_preds, skip_special_tokens=True)
+    # Chunked decode to avoid ByT5 batch_decode hang
+    CHUNK = 64
+    preds = []
+    for i in range(0, len(clipped_preds), CHUNK):
+        preds.extend(tokenizer.batch_decode(clipped_preds[i:i+CHUNK], skip_special_tokens=True))
     labels_clean = np.where(
         pred_output.label_ids != -100, pred_output.label_ids, tokenizer.pad_token_id
     )
-    refs = tokenizer.batch_decode(labels_clean, skip_special_tokens=True)
+    refs = []
+    for i in range(0, len(labels_clean), CHUNK):
+        refs.extend(tokenizer.batch_decode(labels_clean[i:i+CHUNK], skip_special_tokens=True))
 
     pred_df = pd.DataFrame({
         "text_id": val_df["text_id"].tolist()[:len(preds)],
