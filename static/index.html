@@ -465,10 +465,7 @@
   .tt .tt-text {
     visibility: hidden;
     opacity: 0;
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
+    position: fixed;
     background: #1a1a2e;
     color: var(--text-primary);
     border: 1px solid var(--border);
@@ -478,9 +475,9 @@
     line-height: 1.5;
     white-space: normal;
     width: max-content;
-    max-width: 280px;
-    z-index: 100;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    max-width: min(280px, 90vw);
+    z-index: 99999;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
     transition: opacity 0.15s, visibility 0.15s;
     pointer-events: none;
   }
@@ -634,8 +631,170 @@
 
   /* Responsive */
   @media (max-width: 1024px) {
-    .main-area { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+    .main-area { grid-template-columns: 1fr; grid-template-rows: 1fr 300px; }
     .tabs-panel { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+
+  /* ── Mobile-first responsive ── */
+  @media (max-width: 768px) {
+    body { overflow: auto; height: auto; min-height: 100vh; }
+    .app-container {
+      grid-template-rows: auto 1fr auto;
+      height: auto;
+      min-height: 100vh;
+    }
+
+    /* Header: stack vertically */
+    .header {
+      flex-direction: column;
+      padding: 10px 12px;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .header-left { justify-content: center; }
+    .logo {
+      font-size: 18px;
+      text-align: center;
+    }
+    .logo span {
+      display: none;
+    }
+    .header > div:last-child {
+      justify-content: center;
+    }
+    .hw-banner, .status-indicator {
+      font-size: 11px;
+      padding: 4px 10px;
+    }
+
+    /* Main area: single column, full height */
+    .main-area {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+      overflow: visible;
+    }
+
+    /* Console: hide on mobile, show via toggle */
+    .console-panel {
+      display: none;
+    }
+    .console-panel.mobile-show {
+      display: flex;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 9999;
+    }
+
+    /* Tabs: scrollable horizontal bar */
+    .tab-bar {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding: 0 4px;
+    }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      padding: 8px 12px;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    /* Tab content: fill available space */
+    .tabs-panel {
+      border-right: none;
+      overflow: visible;
+    }
+    .tab-content {
+      padding: 12px;
+      overflow-y: auto;
+    }
+
+    /* Form grids: stack on mobile */
+    .form-row, .form-row-3 {
+      grid-template-columns: 1fr;
+    }
+
+    /* Score cards: 1-2 columns */
+    div[style*="grid-template-columns: 1fr 1fr 1fr;"],
+    div[style*="grid-template-columns:1fr 1fr 1fr;"] {
+      grid-template-columns: 1fr 1fr !important;
+    }
+    div[style*="grid-template-columns: 1fr 1fr 1fr 1fr 1fr;"],
+    div[style*="grid-template-columns:1fr 1fr 1fr 1fr 1fr;"] {
+      grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* Metrics bar: wrap */
+    .metrics-bar {
+      flex-wrap: wrap;
+      padding: 6px 12px;
+      gap: 8px 16px;
+      justify-content: center;
+    }
+
+    /* Voice chat: optimize for mobile */
+    .voice-messages {
+      max-height: none;
+      min-height: 150px;
+    }
+    .cuneiform-text {
+      font-size: 1.6em;
+    }
+    .voice-record-btn {
+      width: 70px;
+      height: 70px;
+    }
+    .voice-settings {
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Text pairs: full width */
+    .text-pair-source, .text-pair-target {
+      font-size: 12px;
+    }
+
+    /* Buttons */
+    .btn-run {
+      padding: 10px;
+      font-size: 13px;
+    }
+    .btn-group {
+      flex-direction: column;
+    }
+  }
+
+  /* Very small phones */
+  @media (max-width: 400px) {
+    .logo { font-size: 16px; }
+    .tab-btn { padding: 6px 10px; font-size: 11px; }
+    .tab-content { padding: 8px; }
+    .voice-record-btn { width: 60px; height: 60px; }
+    .cuneiform-text { font-size: 1.3em; }
+    .form-section-title { font-size: 11px; }
+  }
+
+  /* Mobile console toggle button */
+  .mobile-console-toggle {
+    display: none;
+    position: fixed;
+    bottom: 60px;
+    right: 12px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 9998;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    align-items: center;
+    justify-content: center;
+  }
+  @media (max-width: 768px) {
+    .mobile-console-toggle { display: flex; }
   }
 
   /* ── Voice Chat Tab ── */
@@ -795,18 +954,18 @@
     <!-- Left: Tabs -->
     <div class="tabs-panel">
       <div class="tab-bar">
-        <button class="tab-btn active" data-tab="scores">Scores</button>
+        <button class="tab-btn active" data-tab="voice">🎙 Voice</button>
+        <button class="tab-btn" data-tab="scores">Scores</button>
         <button class="tab-btn" data-tab="texts">Texts</button>
         <button class="tab-btn" data-tab="data">Data Prep</button>
         <button class="tab-btn" data-tab="train">Train</button>
         <button class="tab-btn" data-tab="inference">Inference</button>
         <button class="tab-btn" data-tab="eval">Evaluate</button>
-        <button class="tab-btn" data-tab="voice">🎙 Voice</button>
       </div>
       <div class="tab-content">
 
         <!-- SCORES TAB -->
-        <div class="tab-pane active" id="tab-scores">
+        <div class="tab-pane" id="tab-scores">
           <div class="form-section">
             <div class="form-section-title">
               <span class="tt">Competition Scores — Auto-updating
@@ -1120,7 +1279,7 @@
         </div>
 
         <!-- VOICE CHAT TAB -->
-        <div class="tab-pane" id="tab-voice">
+        <div class="tab-pane active" id="tab-voice">
           <div class="voice-chat-container">
             <!-- Header -->
             <div class="voice-header">
@@ -1209,11 +1368,56 @@
   </div>
 </div>
 
+<!-- Mobile console toggle -->
+<button class="mobile-console-toggle" id="mobile-console-toggle" onclick="toggleMobileConsole()" title="Toggle Console">⌨</button>
+
 <script>
 // ── State ──
 let ws = null;
 let isRunning = false;
 let textsOffset = 0;
+
+// ── Mobile console toggle ──
+function toggleMobileConsole() {
+  const panel = document.querySelector('.console-panel');
+  panel.classList.toggle('mobile-show');
+}
+
+// ── Tooltip positioning (fixed, viewport-aware) ──
+document.addEventListener('mouseover', function(e) {
+  const tt = e.target.closest('.tt');
+  if (!tt) return;
+  const tip = tt.querySelector('.tt-text');
+  if (!tip) return;
+  const rect = tt.getBoundingClientRect();
+  // Position above by default
+  let top = rect.top - 8;
+  let left = rect.left + rect.width / 2;
+  // Temporarily show to measure
+  tip.style.visibility = 'hidden';
+  tip.style.opacity = '0';
+  tip.style.display = 'block';
+  tip.style.left = left + 'px';
+  tip.style.top = 'auto';
+  tip.style.bottom = 'auto';
+  const tipRect = tip.getBoundingClientRect();
+  const tipW = tipRect.width;
+  const tipH = tipRect.height;
+  // Vertical: prefer above, fall back to below
+  if (top - tipH < 8) {
+    top = rect.bottom + 8; // below
+    tip.style.top = top + 'px';
+  } else {
+    tip.style.top = (top - tipH) + 'px';
+  }
+  // Horizontal: clamp to viewport
+  let tipLeft = left - tipW / 2;
+  if (tipLeft < 8) tipLeft = 8;
+  if (tipLeft + tipW > window.innerWidth - 8) tipLeft = window.innerWidth - tipW - 8;
+  tip.style.left = tipLeft + 'px';
+  tip.style.transform = 'none';
+  tip.style.display = '';
+});
 
 // ── Score distribution data (from Kaggle leaderboard) ──
 const LB_DIST = [
