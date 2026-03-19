@@ -1,12 +1,13 @@
-# MARDUK – Akkadian → English Neural Translation  (v16 – fast batched beam)
+# MARDUK – Akkadian → English Neural Translation  (v17)
 # Competition: Deep Past Initiative – Machine Translation (Kaggle)
 #
-# v16 changes:
-#   - Batched beam search (not per-example MBR which timed out in v14)
-#   - FP32 weights + autocast inference (FP16 weights destroyed quality in v15: 26→11)
-#   - Length-sorted batching to minimise padding
-#   - Time budget with automatic greedy fallback
-#   - OOM-safe: halves batch size on CUDA OOM
+# v17: Restore v5 generation params that scored 26.2:
+#   - LENGTH_PENALTY=1.2, NO_REPEAT_NGRAM=20, BEAMS=3, TGT_MAX=256
+#   - FP32 inference (no autocast — ByT5 byte-level precision-sensitive)
+#   - Batched beam search for speed
+#   - Fixed postprocessing: test uses unicode fractions & integer months
+#     (reverse conversions in v6-v16 were WRONG and hurt score)
+#   - Time budget + OOM-safe batch halving
 
 # %% [markdown]
 # # MARDUK – Akkadian to English Translation
@@ -62,11 +63,13 @@ else:
     TEST_CSV = Path("/kaggle/input/deep-past-initiative-machine-translation/test.csv")
 OUTPUT_CSV = Path("/kaggle/working/submission.csv")
 
-# Generation parameters
+# Generation parameters — restored from v5 (score=26.2)
 SRC_MAX = 1024
-TGT_MAX = 512
-NUM_BEAMS = 5
-BATCH_SIZE = 8          # inputs per forward pass (halved automatically on OOM)
+TGT_MAX = 256
+NUM_BEAMS = 3
+LENGTH_PENALTY = 1.2
+NO_REPEAT_NGRAM = 20    # critical for ByT5 — prevents byte-level degeneration
+BATCH_SIZE = 4          # inputs per forward pass (halved automatically on OOM)
 TIME_LIMIT = 8 * 3600   # 8 hours hard wall (1 h safety margin on 9 h limit)
 
 # %% [markdown]
@@ -188,7 +191,7 @@ print(f"\nSample input:\n{packed_sources[0][:200]}...")
 # %%
 @torch.no_grad()
 def generate_batch(sources, num_beams=NUM_BEAMS):
-    """Translate a batch of packed source strings with FP16 autocast."""
+    """Translate a batch of packed source strings (FP32 — ByT5 needs full precision)."""
     inputs = tokenizer(
         sources,
         max_length=SRC_MAX,
@@ -196,13 +199,15 @@ def generate_batch(sources, num_beams=NUM_BEAMS):
         padding=True,
         return_tensors="pt",
     ).to(device)
-    with torch.amp.autocast("cuda", dtype=torch.float16):
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=TGT_MAX,
-            num_beams=num_beams,
-            early_stopping=True,
-        )
+    gen_kwargs = dict(
+        max_new_tokens=TGT_MAX,
+        num_beams=num_beams,
+        length_penalty=LENGTH_PENALTY,
+        early_stopping=True,
+    )
+    if NO_REPEAT_NGRAM > 0:
+        gen_kwargs["no_repeat_ngram_size"] = NO_REPEAT_NGRAM
+    outputs = model.generate(**inputs, **gen_kwargs)
     return tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
 
@@ -259,104 +264,25 @@ print(f"\nTranslated {len(all_predictions)} examples in {elapsed/60:.1f} min "
 # ## 6. Post-Process & Create Submission
 
 # %%
-# ── Gap normalization regex (comprehensive) ──
-_GAP_RE = re.compile(
-    r"<\s*big[\s_\-]*gap\s*>"
-    r"|<\s*gap\s*>"
-    r"|\bbig[\s_\-]*gap\b"
-    r"|\bx(?:\s+x)+\b"
-    r"|\.{3,}|…+|\[\.+\]"
-    r"|\[\s*x\s*\]|\(\s*x\s*\)"
-    r"|(?<!\w)x{2,}(?!\w)"
-    r"|(?<!\w)x(?!\w)"
-    r"|\(\s*large\s+break\s*\)"
-    r"|\(\s*break\s*\)"
-    r"|\(\s*\d+\s+broken\s+lines?\s*\)",
-    re.I
-)
-_PN_RE = re.compile(r"\bPN\b")
-_MULTI_GAP_RE = re.compile(r"(?:<gap>\s*){2,}")
-_REPEAT_WORD_RE = re.compile(r"\b(\w+)(?:\s+\1\b)+")
-_REPEAT_PUNCT_RE = re.compile(r"([.,])\1+")
-_PUNCT_SPACE_RE = re.compile(r"\s+([.,:])") 
-_STRAY_MARKS_RE = re.compile(r'<<[^>]*>>|<(?!gap\b)[^>]*>')
-
-# ── Reverse mappings: model outputs cleaned format, references use raw format ──
-# The training pipeline converted decimal→unicode fractions and Roman→int months,
-# so the model outputs ⅓/⅔/½ and "Month 12". Competition references use 0.3333 and "Month XII".
-_INT2ROMAN = {1:"I",2:"II",3:"III",4:"IV",5:"V",6:"VI",
-              7:"VII",8:"VIII",9:"IX",10:"X",11:"XI",12:"XII"}
-_INT_MONTH_RE = re.compile(r"\b([Mm]onth)\s+(\d{1,2})\b")
-
-# Unicode fraction → decimal (reverse of training clean_translation)
-_FRAC_TO_DECIMAL = {
-    "⅓": "0.3333", "⅔": "0.6666", "½": "0.5",
-    "¼": "0.25", "¾": "0.75",
-    "⅙": "0.1666", "⅚": "0.8333", "⅝": "0.625",
-}
-# Also handle e.g. "1⅓" → "1.3333", "2⅔" → "2.6666"
-_NUM_FRAC_RE = re.compile(r"(\d+)([⅓⅔½¼¾⅙⅚⅝])")
-_STANDALONE_FRAC_RE = re.compile(r"(?<!\d)([⅓⅔½¼¾⅙⅚⅝])")
-
-
 def postprocess_translation(text: str) -> str:
-    """Clean model output to match expected test format."""
+    """Clean model output to match expected test format.
+    
+    IMPORTANT: Test data uses unicode fractions (⅓ ⅔ ½) and integer months.
+    Do NOT convert these — the model already outputs the correct format.
+    """
     if not text:
         return ""
-
-    # Gap normalization
-    text = _GAP_RE.sub("<gap>", text)
-    text = _PN_RE.sub("<gap>", text)
-    text = _MULTI_GAP_RE.sub("<gap>", text)
-
     # Curly → straight quotes
     text = text.replace("\u201c", '"').replace("\u201d", '"')
     text = text.replace("\u2018", "'").replace("\u2019", "'")
     # En/em dash → hyphen
     text = text.replace("\u2013", "-").replace("\u2014", "-")
-
-    # Ḫ/ḫ → H/h (not in test translations)
+    # Remove <big_gap> → <gap>
+    text = text.replace("<big_gap>", "<gap>")
+    # Deduplicate adjacent <gap>
+    text = re.sub(r"(<gap>)(?:[\s\-]*<gap>)+", r"\1", text)
+    # Ḫ/ḫ → H/h (confirmed not in test translations)
     text = text.replace("\u1e2a", "H").replace("\u1e2b", "h")
-
-    # Stray markup
-    text = _STRAY_MARKS_RE.sub("", text)
-
-    # ── Reverse training clean_translation() to match raw reference format ──
-    # Integer months → Roman numerals (model outputs "Month 12", refs use "Month XII")
-    def _int_to_roman_month(m):
-        prefix = m.group(1)
-        num = int(m.group(2))
-        roman = _INT2ROMAN.get(num, str(num))
-        return f"{prefix} {roman}"
-    text = _INT_MONTH_RE.sub(_int_to_roman_month, text)
-
-    # Unicode fractions → decimal (model outputs ⅓, refs use 0.3333)
-    # First handle "1⅓" → "1.3333" patterns
-    def _num_frac_to_decimal(m):
-        whole = m.group(1)
-        frac_char = m.group(2)
-        dec = _FRAC_TO_DECIMAL.get(frac_char, "")
-        if dec and "." in dec:
-            dec_part = dec.split(".")[1]
-            return f"{whole}.{dec_part}"
-        return m.group(0)
-    text = _NUM_FRAC_RE.sub(_num_frac_to_decimal, text)
-
-    # Then standalone fractions: "⅓" → "0.3333"
-    def _standalone_frac_to_decimal(m):
-        return _FRAC_TO_DECIMAL.get(m.group(1), m.group(1))
-    text = _STANDALONE_FRAC_RE.sub(_standalone_frac_to_decimal, text)
-
-    # Strip forbidden chars while preserving <gap>
-    text = text.replace("<gap>", "\x00GAP\x00")
-    text = text.translate(str.maketrans("", "", '\u2014\u2014<>\u2308\u230b\u230a[]+\u02be;'))
-    text = text.replace("\x00GAP\x00", " <gap> ")
-
-    # Repetition cleanup
-    text = _REPEAT_WORD_RE.sub(r"\1", text)
-    text = _PUNCT_SPACE_RE.sub(r"\1", text)
-    text = _REPEAT_PUNCT_RE.sub(r"\1", text)
-
     # Clean whitespace
     text = re.sub(r"\s+", " ", text).strip()
     return text
