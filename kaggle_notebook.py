@@ -1,12 +1,13 @@
-# MARDUK – Akkadian → English Neural Translation
+# MARDUK – Akkadian → English Neural Translation  (v15 – fast batched beam)
 # Competition: Deep Past Initiative – Machine Translation (Kaggle)
 #
-# This notebook loads a fine-tuned ByT5-base model (v2 clean, val=43.26)
-# and generates translations for the test set.
-#
-# Model: google/byt5-base retrained on clean data (no augmented), TGT_MAX=256
-# Data source: theskateborg/marduk-model-download (Kaggle kernel output)
-# Architecture: Byte-level Seq2Seq with dual-view (raw + normalized) input packing
+# v15 changes from v14:
+#   - Removed MBR self-ensemble (was causing timeout on hidden test set)
+#   - Batched beam search for ~10x speedup
+#   - FP16 model loading for 2x memory/speed gain
+#   - Length-sorted batching to minimise padding
+#   - Time budget with automatic greedy fallback
+#   - OOM-safe: halves batch size on CUDA OOM
 
 # %% [markdown]
 # # MARDUK – Akkadian to English Translation
@@ -14,6 +15,7 @@
 # %%
 import os
 import re
+import time
 import unicodedata
 from pathlib import Path
 
@@ -61,17 +63,12 @@ else:
     TEST_CSV = Path("/kaggle/input/deep-past-initiative-machine-translation/test.csv")
 OUTPUT_CSV = Path("/kaggle/working/submission.csv")
 
-# Generation parameters — match training eval config that scored val=43.26
+# Generation parameters
 SRC_MAX = 1024
-TGT_MAX = 512  # bumped from 256 — training targets often exceed 256 bytes
+TGT_MAX = 512
 NUM_BEAMS = 5
-BATCH_SIZE = 4
-
-# MBR self-ensemble parameters
-MBR_SAMPLES = 12       # number of diverse candidates per input (5 beam + 7 sampled)
-MBR_TEMPERATURE = 0.8  # sampling temperature for diversity
-MBR_TOP_P = 0.92       # nucleus sampling threshold
-MBR_SAMPLE_BATCH = 4   # generate samples in small batches to avoid OOM
+BATCH_SIZE = 8          # inputs per forward pass (halved automatically on OOM)
+TIME_LIMIT = 8 * 3600   # 8 hours hard wall (1 h safety margin on 9 h limit)
 
 # %% [markdown]
 # ## 2. Preprocessing – Akkadian Normalization & Dual-View Packing
@@ -158,7 +155,9 @@ if device.type == "cuda":
 
 print(f"Loading model from {MODEL_PATH}...")
 tokenizer = AutoTokenizer.from_pretrained(str(MODEL_PATH))
-model = AutoModelForSeq2SeqLM.from_pretrained(str(MODEL_PATH)).to(device)
+model = AutoModelForSeq2SeqLM.from_pretrained(
+    str(MODEL_PATH), torch_dtype=torch.float16
+).to(device)
 model.eval()
 
 n_params = sum(p.numel() for p in model.parameters())
@@ -187,190 +186,76 @@ if "text_id" in test_df.columns:
 print(f"\nSample input:\n{packed_sources[0][:200]}...")
 
 # %% [markdown]
-# ## 5. Generate Translations (MBR Self-Ensemble)
+# ## 5. Generate Translations (Batched Beam Search)
 
 # %%
-# ── Inline chrF++ scorer (no external deps) ──
-from collections import Counter
-
-def _extract_char_ngrams(text: str, n: int) -> Counter:
-    """Extract character n-grams from text."""
-    return Counter(text[i:i+n] for i in range(len(text) - n + 1))
-
-def _extract_word_ngrams(text: str, n: int) -> Counter:
-    """Extract word n-grams from text."""
-    words = text.split()
-    return Counter(tuple(words[i:i+n]) for i in range(len(words) - n + 1))
-
-def chrf_score(hypothesis: str, reference: str,
-               char_order: int = 6, word_order: int = 2,
-               beta: float = 2.0) -> float:
-    """Compute chrF++ between two strings.
-    
-    chrF++ uses character n-grams (1..char_order) + word n-grams (1..word_order).
-    F_beta with beta=2 weights recall twice as much as precision.
-    """
-    if not hypothesis and not reference:
-        return 1.0
-    if not hypothesis or not reference:
-        return 0.0
-
-    total_precision_num = 0.0
-    total_precision_den = 0.0
-    total_recall_num = 0.0
-    total_recall_den = 0.0
-    n_total = 0
-
-    # Character n-grams
-    for n in range(1, char_order + 1):
-        hyp_ngrams = _extract_char_ngrams(hypothesis, n)
-        ref_ngrams = _extract_char_ngrams(reference, n)
-        if not hyp_ngrams and not ref_ngrams:
-            continue
-        common = sum((hyp_ngrams & ref_ngrams).values())
-        total_precision_num += common
-        total_precision_den += sum(hyp_ngrams.values())
-        total_recall_num += common
-        total_recall_den += sum(ref_ngrams.values())
-        n_total += 1
-
-    # Word n-grams (the ++ in chrF++)
-    for n in range(1, word_order + 1):
-        hyp_ngrams = _extract_word_ngrams(hypothesis, n)
-        ref_ngrams = _extract_word_ngrams(reference, n)
-        if not hyp_ngrams and not ref_ngrams:
-            continue
-        common = sum((hyp_ngrams & ref_ngrams).values())
-        total_precision_num += common
-        total_precision_den += sum(hyp_ngrams.values())
-        total_recall_num += common
-        total_recall_den += sum(ref_ngrams.values())
-        n_total += 1
-
-    if n_total == 0:
-        return 0.0
-
-    precision = total_precision_num / total_precision_den if total_precision_den > 0 else 0.0
-    recall = total_recall_num / total_recall_den if total_recall_den > 0 else 0.0
-
-    if precision + recall == 0:
-        return 0.0
-
-    beta_sq = beta ** 2
-    score = (1 + beta_sq) * precision * recall / (beta_sq * precision + recall)
-    return score * 100  # Scale to 0-100 like sacrebleu
-
-
-def mbr_select(candidates):
-    """Select the MBR-optimal candidate: the one with highest average chrF++
-    against all other candidates (consensus translation).
-
-    Returns (best_candidate, best_score).
-    """
-    if len(candidates) <= 1:
-        return candidates[0] if candidates else "", 0.0
-
-    # Deduplicate while preserving order
-    seen = set()
-    unique = []
-    for c in candidates:
-        c_stripped = c.strip()
-        if c_stripped not in seen:
-            seen.add(c_stripped)
-            unique.append(c_stripped)
-
-    if len(unique) == 1:
-        return unique[0], 100.0
-
-    n = len(unique)
-    # Compute pairwise chrF++ matrix (symmetric)
-    scores = [[0.0] * n for _ in range(n)]
-    for i in range(n):
-        for j in range(i + 1, n):
-            s = chrf_score(unique[i], unique[j])
-            scores[i][j] = s
-            scores[j][i] = s
-
-    # Average score for each candidate (against all others)
-    avg_scores = [sum(scores[i]) / (n - 1) for i in range(n)]
-    best_idx = max(range(n), key=lambda i: avg_scores[i])
-    return unique[best_idx], avg_scores[best_idx]
-
-
 @torch.no_grad()
-def generate_candidates(packed_source):
-    """Generate diverse translation candidates for one input using
-    beam search + sampling for MBR selection."""
+def generate_batch(sources, num_beams=NUM_BEAMS):
+    """Translate a batch of packed source strings."""
     inputs = tokenizer(
-        [packed_source],
+        sources,
         max_length=SRC_MAX,
         truncation=True,
         padding=True,
         return_tensors="pt",
     ).to(device)
-
-    use_amp = device.type == "cuda" and torch.cuda.is_bf16_supported()
-    candidates = []
-
-    with torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_amp):
-        # 1) Beam search — get top beam hypotheses
-        beam_out = model.generate(
-            **inputs,
-            max_new_tokens=TGT_MAX,
-            num_beams=NUM_BEAMS,
-            num_return_sequences=NUM_BEAMS,
-            early_stopping=True,
-        )
-        beam_texts = tokenizer.batch_decode(beam_out, skip_special_tokens=True)
-        candidates.extend(beam_texts)
-        del beam_out
-
-        # 2) Diverse sampling — get stochastic candidates in small batches
-        n_samples = MBR_SAMPLES - NUM_BEAMS
-        remaining = n_samples
-        while remaining > 0:
-            batch_n = min(remaining, MBR_SAMPLE_BATCH)
-            sample_out = model.generate(
-                **inputs,
-                max_new_tokens=TGT_MAX,
-                do_sample=True,
-                temperature=MBR_TEMPERATURE,
-                top_p=MBR_TOP_P,
-                num_return_sequences=batch_n,
-            )
-            sample_texts = tokenizer.batch_decode(sample_out, skip_special_tokens=True)
-            candidates.extend(sample_texts)
-            del sample_out
-            remaining -= batch_n
-
-    if device.type == "cuda":
-        torch.cuda.empty_cache()
-    return candidates
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=TGT_MAX,
+        num_beams=num_beams,
+        early_stopping=True,
+    )
+    return tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
 
-# Generate + MBR-select for each test example
-all_predictions = []
-for idx, packed in enumerate(tqdm(packed_sources, desc="MBR Translating")):
+# Sort by input length for efficient padding, then unsort after
+order = sorted(range(len(packed_sources)), key=lambda i: len(packed_sources[i]))
+sorted_sources = [packed_sources[i] for i in order]
+
+all_predictions_sorted = [""] * len(sorted_sources)
+batch_size = BATCH_SIZE
+t0 = time.time()
+
+i = 0
+pbar = tqdm(total=len(sorted_sources), desc="Translating")
+while i < len(sorted_sources):
+    elapsed = time.time() - t0
+    remaining_examples = len(sorted_sources) - i
+
+    # Switch to greedy if running low on time
+    beams = NUM_BEAMS
+    if elapsed > TIME_LIMIT * 0.85 and remaining_examples > 50:
+        beams = 1  # greedy fallback
+        batch_size = max(batch_size, 16)
+        if not hasattr(generate_batch, "_warned_greedy"):
+            print(f"\n⚠ Time budget tight ({elapsed/3600:.1f}h), switching to greedy")
+            generate_batch._warned_greedy = True
+
+    batch_end = min(i + batch_size, len(sorted_sources))
+    batch = sorted_sources[i:batch_end]
+
     try:
-        candidates = generate_candidates(packed)
-        best, score = mbr_select(candidates)
-        print(f"  Example {idx}: {len(candidates)} cands, "
-              f"{len(set(c.strip() for c in candidates))} unique, "
-              f"MBR={score:.1f}")
-    except Exception as e:
-        # Fallback to simple beam search if MBR fails (e.g. OOM)
-        print(f"  Example {idx}: MBR failed ({e}), falling back to beam")
-        torch.cuda.empty_cache()
-        inputs = tokenizer(
-            [packed], max_length=SRC_MAX, truncation=True,
-            padding=True, return_tensors="pt"
-        ).to(device)
-        out = model.generate(**inputs, max_new_tokens=TGT_MAX,
-                             num_beams=NUM_BEAMS, early_stopping=True)
-        best = tokenizer.batch_decode(out, skip_special_tokens=True)[0]
-    all_predictions.append(best)
+        preds = generate_batch(batch, num_beams=beams)
+        all_predictions_sorted[i:batch_end] = preds
+        pbar.update(batch_end - i)
+        i = batch_end
+    except RuntimeError as e:
+        if "out of memory" in str(e).lower() and batch_size > 1:
+            torch.cuda.empty_cache()
+            batch_size = max(1, batch_size // 2)
+            print(f"\n⚠ OOM – reducing batch_size to {batch_size}")
+        else:
+            raise
+pbar.close()
 
-print(f"\nGenerated {len(all_predictions)} translations via MBR self-ensemble")
+# Unsort back to original order
+all_predictions = [""] * len(packed_sources)
+for orig_idx, pred in zip(order, all_predictions_sorted):
+    all_predictions[orig_idx] = pred
+
+elapsed = time.time() - t0
+print(f"\nTranslated {len(all_predictions)} examples in {elapsed/60:.1f} min "
+      f"({elapsed/len(all_predictions):.2f} s/example)")
 
 # %% [markdown]
 # ## 6. Post-Process & Create Submission
