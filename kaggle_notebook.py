@@ -1,10 +1,9 @@
-# MARDUK – Akkadian → English Neural Translation  (v15 – fast batched beam)
+# MARDUK – Akkadian → English Neural Translation  (v16 – fast batched beam)
 # Competition: Deep Past Initiative – Machine Translation (Kaggle)
 #
-# v15 changes from v14:
-#   - Removed MBR self-ensemble (was causing timeout on hidden test set)
-#   - Batched beam search for ~10x speedup
-#   - FP16 model loading for 2x memory/speed gain
+# v16 changes:
+#   - Batched beam search (not per-example MBR which timed out in v14)
+#   - FP32 weights + autocast inference (FP16 weights destroyed quality in v15: 26→11)
 #   - Length-sorted batching to minimise padding
 #   - Time budget with automatic greedy fallback
 #   - OOM-safe: halves batch size on CUDA OOM
@@ -155,9 +154,7 @@ if device.type == "cuda":
 
 print(f"Loading model from {MODEL_PATH}...")
 tokenizer = AutoTokenizer.from_pretrained(str(MODEL_PATH))
-model = AutoModelForSeq2SeqLM.from_pretrained(
-    str(MODEL_PATH), torch_dtype=torch.float16
-).to(device)
+model = AutoModelForSeq2SeqLM.from_pretrained(str(MODEL_PATH)).to(device)
 model.eval()
 
 n_params = sum(p.numel() for p in model.parameters())
@@ -191,7 +188,7 @@ print(f"\nSample input:\n{packed_sources[0][:200]}...")
 # %%
 @torch.no_grad()
 def generate_batch(sources, num_beams=NUM_BEAMS):
-    """Translate a batch of packed source strings."""
+    """Translate a batch of packed source strings with FP16 autocast."""
     inputs = tokenizer(
         sources,
         max_length=SRC_MAX,
@@ -199,12 +196,13 @@ def generate_batch(sources, num_beams=NUM_BEAMS):
         padding=True,
         return_tensors="pt",
     ).to(device)
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=TGT_MAX,
-        num_beams=num_beams,
-        early_stopping=True,
-    )
+    with torch.amp.autocast("cuda", dtype=torch.float16):
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=TGT_MAX,
+            num_beams=num_beams,
+            early_stopping=True,
+        )
     return tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
 
