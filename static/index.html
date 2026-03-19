@@ -1779,34 +1779,31 @@ function akkadianToPhonetic(text) {
 
 function speakText(btn, text, lang) {
   // Stop any current speech
-  if (speechSynthesis.speaking) {
-    speechSynthesis.cancel();
-    document.querySelectorAll('.tts-btn.playing').forEach(b => b.classList.remove('playing'));
-    if (btn.classList.contains('playing')) {
-      btn.classList.remove('playing');
-      return;
-    }
+  speechSynthesis.cancel();
+  document.querySelectorAll('.tts-btn.playing').forEach(b => b.classList.remove('playing'));
+  if (btn.classList.contains('playing')) {
+    btn.classList.remove('playing');
+    return;
   }
 
   let processedText = text;
   const utterance = new SpeechSynthesisUtterance();
 
   if (lang === 'akkadian') {
-    // Convert transliteration to phonetic approximation
     processedText = akkadianToPhonetic(text);
     utterance.text = processedText;
     utterance.lang = 'en-US';
-    utterance.rate = 0.8;    // Deliberate but not sluggish
-    utterance.pitch = 0.75;  // Deeper, more solemn tone
+    utterance.rate = 0.8;
+    utterance.pitch = 0.6;
     utterance.volume = 1.0;
   } else {
     utterance.text = processedText;
     utterance.lang = 'en-US';
     utterance.rate = 1.25;
-    utterance.pitch = 0.7;
+    utterance.pitch = 0.55;
   }
 
-  // Find a male voice (works on desktop + mobile)
+  // Find a male voice (works on desktop + Android + iOS)
   const allVoices = speechSynthesis.getVoices();
   const maleNames = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Microsoft Mark',
                      'Google US English', 'Aaron', 'Fred', 'Ralph', 'Alex', 'Tom', 'Lee',
@@ -1818,6 +1815,11 @@ function speakText(btn, text, lang) {
   if (!utterance.voice) {
     const maleByName = allVoices.find(v => /\bmale\b/i.test(v.name));
     if (maleByName) utterance.voice = maleByName;
+    else {
+      // Fallback: first en-US voice, rely on pitch
+      const enUS = allVoices.find(v => v.lang === 'en-US');
+      if (enUS) utterance.voice = enUS;
+    }
   }
 
   btn.classList.add('playing');
@@ -1825,7 +1827,7 @@ function speakText(btn, text, lang) {
   utterance.onerror = () => btn.classList.remove('playing');
 
   currentUtterance = utterance;
-  speechSynthesis.speak(utterance);
+  setTimeout(() => speechSynthesis.speak(utterance), 50);
 }
 
 // Preload voices (needed for some browsers)
@@ -2265,11 +2267,15 @@ function addVoiceMessage(type, text, cuneiform, romanization, animate) {
 }
 
 function speakVoiceResponse(text, lang, callback) {
+  // Chrome bug: cancel before speak to prevent silent failures
+  speechSynthesis.cancel();
+
   const utterance = new SpeechSynthesisUtterance();
 
   const voices = speechSynthesis.getVoices();
-  // Find male voice: check name for male keywords or known male voice names
+  // Find male voice: works across desktop, Android, iOS
   function findMaleVoice(voiceList) {
+    // 1. Desktop/known male voices by name
     const preferred = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Microsoft Mark',
                        'Google US English', 'Aaron', 'Fred', 'Ralph', 'Alex', 'Tom', 'Lee',
                        'Rishi', 'Oliver', 'Malcolm', 'Eddy', 'Reed', 'Rocko'];
@@ -2277,10 +2283,16 @@ function speakVoiceResponse(text, lang, callback) {
       const v = voiceList.find(v => v.name.includes(name));
       if (v) return v;
     }
-    // Fallback: look for any voice with 'Male' in name
+    // 2. Any voice with 'Male' in name
     const maleByName = voiceList.find(v => /\bmale\b/i.test(v.name));
     if (maleByName) return maleByName;
-    // Last resort: pick lowest-pitch english voice (just return first en voice)
+    // 3. Android: look for en-us-x- voices that are typically male (deeper variants)
+    const androidMale = voiceList.find(v => v.lang === 'en-US' && /\b(deep|low|male)\b/i.test(v.name));
+    if (androidMale) return androidMale;
+    // 4. Pick first en-US voice (will rely on pitch to sound male)
+    const enUS = voiceList.find(v => v.lang === 'en-US');
+    if (enUS) return enUS;
+    // 5. Any English voice
     return voiceList.find(v => v.lang && v.lang.startsWith('en')) || null;
   }
 
@@ -2290,20 +2302,21 @@ function speakVoiceResponse(text, lang, callback) {
     utterance.text = akkadianToPhonetic(text);
     utterance.lang = 'en-US';
     utterance.rate = 0.8;
-    utterance.pitch = 0.75;
+    utterance.pitch = 0.6;  // Very low pitch for male sound on all platforms
     if (maleVoice) utterance.voice = maleVoice;
   } else {
     utterance.text = text;
     utterance.lang = 'en-US';
     utterance.rate = 1.25;
-    utterance.pitch = 0.7;
+    utterance.pitch = 0.55;  // Even lower for English to guarantee male on Android
     if (maleVoice) utterance.voice = maleVoice;
   }
 
   utterance.onend = () => { if (callback) callback(); };
   utterance.onerror = () => { if (callback) callback(); };
 
-  speechSynthesis.speak(utterance);
+  // Small delay ensures Chrome mobile processes the cancel() above
+  setTimeout(() => speechSynthesis.speak(utterance), 50);
 }
 
 function setVoiceState(state) {
@@ -2384,19 +2397,30 @@ function toggleVoiceChat() {
     };
 
     voiceRecognition.onerror = (event) => {
-      isVoiceRecording = false;
       if (event.error === 'no-speech') {
+        isVoiceRecording = false;
         setVoiceState('ready');
         addVoiceMessage('system', 'No speech detected. Tap the button and speak.', null, null);
       } else if (event.error === 'not-allowed') {
+        isVoiceRecording = false;
         setVoiceState('error');
-      } else {
+      } else if (event.error !== 'aborted') {
+        isVoiceRecording = false;
         setVoiceState('ready');
       }
     };
 
     voiceRecognition.onend = () => {
-      if (isVoiceRecording) {
+      // On mobile Chrome, onend fires when the engine stops on its own.
+      // If we have accumulated text, process it now instead of dropping it.
+      if (voiceSilenceTimer) { clearTimeout(voiceSilenceTimer); voiceSilenceTimer = null; }
+      if (voiceAccumulated) {
+        const text = voiceAccumulated;
+        voiceAccumulated = '';
+        isVoiceRecording = false;
+        handleVoiceInput(text);
+      } else if (isVoiceRecording) {
+        // No text accumulated — just reset
         isVoiceRecording = false;
         setVoiceState('ready');
       }
