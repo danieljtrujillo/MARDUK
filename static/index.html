@@ -1328,6 +1328,12 @@
                 </select>
               </label>
               <label class="voice-setting-item">
+                <span>Voice</span>
+                <select id="voice-select" style="max-width:200px;">
+                  <option value="auto">Auto (Male)</option>
+                </select>
+              </label>
+              <label class="voice-setting-item">
                 <span>Show Cuneiform</span>
                 <input type="checkbox" id="voice-show-cuneiform" checked>
               </label>
@@ -1803,24 +1809,9 @@ function speakText(btn, text, lang) {
     utterance.pitch = 0.55;
   }
 
-  // Find a male voice (works on desktop + Android + iOS)
-  const allVoices = speechSynthesis.getVoices();
-  const maleNames = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Microsoft Mark',
-                     'Google US English', 'Aaron', 'Fred', 'Ralph', 'Alex', 'Tom', 'Lee',
-                     'Rishi', 'Oliver', 'Malcolm', 'Eddy', 'Reed', 'Rocko'];
-  for (const name of maleNames) {
-    const v = allVoices.find(v => v.name.includes(name));
-    if (v) { utterance.voice = v; break; }
-  }
-  if (!utterance.voice) {
-    const maleByName = allVoices.find(v => /\bmale\b/i.test(v.name));
-    if (maleByName) utterance.voice = maleByName;
-    else {
-      // Fallback: first en-US voice, rely on pitch
-      const enUS = allVoices.find(v => v.lang === 'en-US');
-      if (enUS) utterance.voice = enUS;
-    }
-  }
+  // Use the shared voice picker (dropdown or auto)
+  const chosenVoice = getSelectedVoice();
+  if (chosenVoice) utterance.voice = chosenVoice;
 
   btn.classList.add('playing');
   utterance.onend = () => btn.classList.remove('playing');
@@ -1830,11 +1821,84 @@ function speakText(btn, text, lang) {
   setTimeout(() => speechSynthesis.speak(utterance), 50);
 }
 
-// Preload voices (needed for some browsers)
+// ── Shared voice picker used by both TTS functions ──
+function getSelectedVoice() {
+  const sel = document.getElementById('voice-select');
+  if (!sel || sel.value === 'auto') return findMaleVoiceAuto();
+  const voices = speechSynthesis.getVoices();
+  return voices.find(v => v.name === sel.value) || findMaleVoiceAuto();
+}
+
+function findMaleVoiceAuto() {
+  const voices = speechSynthesis.getVoices();
+  // 1. Known male voices by name (desktop + mobile)
+  const preferred = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Microsoft Mark',
+                     'Google US English', 'Aaron', 'Fred', 'Ralph', 'Alex', 'Tom', 'Lee',
+                     'Rishi', 'Oliver', 'Malcolm', 'Eddy', 'Reed', 'Rocko'];
+  for (const name of preferred) {
+    const v = voices.find(v => v.name.includes(name));
+    if (v) return v;
+  }
+  // 2. Any voice with 'Male' in name
+  const maleByName = voices.find(v => /\bmale\b/i.test(v.name));
+  if (maleByName) return maleByName;
+  // 3. First en-US voice (rely on pitch setting)
+  return voices.find(v => v.lang === 'en-US') || voices.find(v => v.lang && v.lang.startsWith('en')) || null;
+}
+
+function populateVoiceDropdown() {
+  const sel = document.getElementById('voice-select');
+  if (!sel) return;
+  const voices = speechSynthesis.getVoices();
+  // Keep the auto option, clear the rest
+  while (sel.options.length > 1) sel.remove(1);
+  // Add all English voices
+  const enVoices = voices.filter(v => v.lang && v.lang.startsWith('en'));
+  enVoices.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.name;
+    opt.textContent = v.name + (v.localService ? '' : ' ☁');
+    sel.appendChild(opt);
+  });
+  // If there are non-English voices too, add them in a separate group
+  const otherVoices = voices.filter(v => !v.lang || !v.lang.startsWith('en'));
+  if (otherVoices.length > 0) {
+    const sep = document.createElement('option');
+    sep.disabled = true;
+    sep.textContent = '── Other ──';
+    sel.appendChild(sep);
+    otherVoices.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.name;
+      opt.textContent = v.name + ' [' + v.lang + ']';
+      sel.appendChild(opt);
+    });
+  }
+  // Restore saved selection
+  const saved = localStorage.getItem('marduk-voice');
+  if (saved && [...sel.options].some(o => o.value === saved)) {
+    sel.value = saved;
+  }
+}
+
+// Preload voices and populate dropdown
 if (typeof speechSynthesis !== 'undefined') {
   speechSynthesis.getVoices();
-  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged = () => {
+    speechSynthesis.getVoices();
+    populateVoiceDropdown();
+  };
+  // Also try populating after a short delay (some browsers fire voiceschanged late)
+  setTimeout(populateVoiceDropdown, 500);
 }
+
+// Save voice selection
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('voice-select');
+  if (sel) sel.addEventListener('change', () => {
+    localStorage.setItem('marduk-voice', sel.value);
+  });
+});
 
 // ── Voice Chat Engine ──
 // Latin → Cuneiform approximate transliteration map (syllabary)
@@ -2271,45 +2335,20 @@ function speakVoiceResponse(text, lang, callback) {
   speechSynthesis.cancel();
 
   const utterance = new SpeechSynthesisUtterance();
-
-  const voices = speechSynthesis.getVoices();
-  // Find male voice: works across desktop, Android, iOS
-  function findMaleVoice(voiceList) {
-    // 1. Desktop/known male voices by name
-    const preferred = ['Google UK English Male', 'Microsoft David', 'Daniel', 'Microsoft Mark',
-                       'Google US English', 'Aaron', 'Fred', 'Ralph', 'Alex', 'Tom', 'Lee',
-                       'Rishi', 'Oliver', 'Malcolm', 'Eddy', 'Reed', 'Rocko'];
-    for (const name of preferred) {
-      const v = voiceList.find(v => v.name.includes(name));
-      if (v) return v;
-    }
-    // 2. Any voice with 'Male' in name
-    const maleByName = voiceList.find(v => /\bmale\b/i.test(v.name));
-    if (maleByName) return maleByName;
-    // 3. Android: look for en-us-x- voices that are typically male (deeper variants)
-    const androidMale = voiceList.find(v => v.lang === 'en-US' && /\b(deep|low|male)\b/i.test(v.name));
-    if (androidMale) return androidMale;
-    // 4. Pick first en-US voice (will rely on pitch to sound male)
-    const enUS = voiceList.find(v => v.lang === 'en-US');
-    if (enUS) return enUS;
-    // 5. Any English voice
-    return voiceList.find(v => v.lang && v.lang.startsWith('en')) || null;
-  }
-
-  const maleVoice = findMaleVoice(voices);
+  const chosenVoice = getSelectedVoice();
 
   if (lang === 'akkadian') {
     utterance.text = akkadianToPhonetic(text);
     utterance.lang = 'en-US';
     utterance.rate = 0.8;
-    utterance.pitch = 0.6;  // Very low pitch for male sound on all platforms
-    if (maleVoice) utterance.voice = maleVoice;
+    utterance.pitch = 0.6;
+    if (chosenVoice) utterance.voice = chosenVoice;
   } else {
     utterance.text = text;
     utterance.lang = 'en-US';
     utterance.rate = 1.25;
-    utterance.pitch = 0.55;  // Even lower for English to guarantee male on Android
-    if (maleVoice) utterance.voice = maleVoice;
+    utterance.pitch = 0.55;
+    if (chosenVoice) utterance.voice = chosenVoice;
   }
 
   utterance.onend = () => { if (callback) callback(); };
