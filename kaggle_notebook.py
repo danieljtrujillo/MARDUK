@@ -1,13 +1,13 @@
-# MARDUK – Akkadian → English Neural Translation  (v17)
+# MARDUK – Akkadian → English Neural Translation  (v19)
 # Competition: Deep Past Initiative – Machine Translation (Kaggle)
 #
-# v17: Restore v5 generation params that scored 26.2:
-#   - LENGTH_PENALTY=1.2, NO_REPEAT_NGRAM=20, BEAMS=3, TGT_MAX=256
-#   - FP32 inference (no autocast — ByT5 byte-level precision-sensitive)
-#   - Batched beam search for speed
-#   - Fixed postprocessing: test uses unicode fractions & integer months
-#     (reverse conversions in v6-v16 were WRONG and hurt score)
-#   - Time budget + OOM-safe batch halving
+# v19: Use byt5_plain_v1 model (validation comp_score 43.26):
+#   - DUAL-VIEW format: "<raw> ... </raw> <norm> ... </norm>" (matches training)
+#   - Generation: LENGTH_PENALTY=1.3, REPETITION_PENALTY=1.2 (from training eval)
+#   - NUM_BEAMS=5 (training used 8; 5 is T4-safe)
+#   - SRC_MAX=512, TGT_MAX=384 (match training config)
+#   - FP32 inference (ByT5 byte-level precision-sensitive)
+#   - Batched beam search + time budget + OOM-safe batch halving
 
 # %% [markdown]
 # # MARDUK – Akkadian to English Translation
@@ -63,12 +63,13 @@ else:
     TEST_CSV = Path("/kaggle/input/deep-past-initiative-machine-translation/test.csv")
 OUTPUT_CSV = Path("/kaggle/working/submission.csv")
 
-# Generation parameters — restored from v5 (score=26.2)
-SRC_MAX = 1024
-TGT_MAX = 256
-NUM_BEAMS = 3
-LENGTH_PENALTY = 1.2
-NO_REPEAT_NGRAM = 20    # critical for ByT5 — prevents byte-level degeneration
+# Generation parameters — matched to byt5_plain_v1 training config (val comp_score 43.26)
+SRC_MAX = 512
+TGT_MAX = 384
+NUM_BEAMS = 5            # training eval used 8; 5 is T4-safe compromise
+LENGTH_PENALTY = 1.3     # from byt5_plain.yaml model config
+REPETITION_PENALTY = 1.2 # from byt5_plain.yaml model config
+NO_REPEAT_NGRAM = 20     # safety: prevent byte-level degeneration on unseen test
 BATCH_SIZE = 4          # inputs per forward pass (halved automatically on OOM)
 TIME_LIMIT = 8 * 3600   # 8 hours hard wall (1 h safety margin on 9 h limit)
 
@@ -138,7 +139,7 @@ def normalize_text(text: str) -> str:
     return text
 
 def pack_source(raw_text: str, normalized_text: str) -> str:
-    """Create dual-view input: <raw> ... </raw> <norm> ... </norm>"""
+    """Create dual-view input (matches training format in train_prepared.csv)."""
     return f"<raw> {raw_text} </raw> <norm> {normalized_text} </norm>"
 
 def preprocess_row(row: dict) -> str:
@@ -203,6 +204,7 @@ def generate_batch(sources, num_beams=NUM_BEAMS):
         max_new_tokens=TGT_MAX,
         num_beams=num_beams,
         length_penalty=LENGTH_PENALTY,
+        repetition_penalty=REPETITION_PENALTY,
         early_stopping=True,
     )
     if NO_REPEAT_NGRAM > 0:
