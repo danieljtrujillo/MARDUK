@@ -1,12 +1,12 @@
-# MARDUK – Akkadian → English Neural Translation  (v19)
+# MARDUK – Akkadian → English Neural Translation  (v20)
 # Competition: Deep Past Initiative – Machine Translation (Kaggle)
 #
-# v19: Use byt5_plain_v1 model (validation comp_score 43.26):
-#   - DUAL-VIEW format: "<raw> ... </raw> <norm> ... </norm>" (matches training)
-#   - Generation: LENGTH_PENALTY=1.3, REPETITION_PENALTY=1.2 (from training eval)
-#   - NUM_BEAMS=5 (training used 8; 5 is T4-safe)
-#   - SRC_MAX=512, TGT_MAX=384 (match training config)
-#   - FP32 inference (ByT5 byte-level precision-sensitive)
+# v20: Restore v5 params (scored 26.2) + enhanced post-processing
+#   - DUAL-VIEW format: "<raw> ... </raw> <norm> ... </norm>"
+#   - Generation: v5 params (SRC_MAX=1024, TGT_MAX=1024, NUM_BEAMS=3, LP=1.2)
+#   - bfloat16 autocast (v5 used this; FP32 was a v19 regression)
+#   - NO repetition_penalty (v5 didn't use it)
+#   - Enhanced post-processing: decimal→fraction, ḫ→h, gap cleanup
 #   - Batched beam search + time budget + OOM-safe batch halving
 
 # %% [markdown]
@@ -63,12 +63,11 @@ else:
     TEST_CSV = Path("/kaggle/input/deep-past-initiative-machine-translation/test.csv")
 OUTPUT_CSV = Path("/kaggle/working/submission.csv")
 
-# Generation parameters — matched to byt5_plain_v1 training config (val comp_score 43.26)
-SRC_MAX = 512
-TGT_MAX = 384
-NUM_BEAMS = 5            # training eval used 8; 5 is T4-safe compromise
-LENGTH_PENALTY = 1.3     # from byt5_plain.yaml model config
-REPETITION_PENALTY = 1.2 # from byt5_plain.yaml model config
+# Generation parameters — restored from v5 (scored 26.2 on LB)
+SRC_MAX = 1024
+TGT_MAX = 1024
+NUM_BEAMS = 3            # v5 used 3 (not 5)
+LENGTH_PENALTY = 1.2     # v5 used 1.2 (not 1.3)
 NO_REPEAT_NGRAM = 20     # safety: prevent byte-level degeneration on unseen test
 BATCH_SIZE = 4          # inputs per forward pass (halved automatically on OOM)
 TIME_LIMIT = 8 * 3600   # 8 hours hard wall (1 h safety margin on 9 h limit)
@@ -91,12 +90,18 @@ SUPERSCRIPT_MAP = str.maketrans(
     "\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079",
     "0123456789",
 )
-# NOTE: Diacritics (á à é è í ì ú ù) are preserved — test data uses them
+# v5 VOWEL_MAP: convert diacritics to ASCII numbers (matches v5_detrunc training data)
+VOWEL_MAP = {
+    "\u00e1": "a2", "\u00e0": "a3", "\u00e9": "e2", "\u00e8": "e3",
+    "\u00ed": "i2", "\u00ec": "i3", "\u00fa": "u2", "\u00f9": "u3",
+}
 
 def normalize_akkadian_chars(text: str) -> str:
     text = text.translate(AKKADIAN_CHAR_MAP)
     text = text.translate(SUBSCRIPT_MAP)
     text = text.translate(SUPERSCRIPT_MAP)
+    for src, dst in VOWEL_MAP.items():
+        text = text.replace(src, dst)
     return text
 
 def normalize_scribal_notations(text: str) -> str:
@@ -192,7 +197,7 @@ print(f"\nSample input:\n{packed_sources[0][:200]}...")
 # %%
 @torch.no_grad()
 def generate_batch(sources, num_beams=NUM_BEAMS):
-    """Translate a batch of packed source strings (FP32 — ByT5 needs full precision)."""
+    """Translate a batch — bfloat16 autocast (matches v5 which scored 26.2)."""
     inputs = tokenizer(
         sources,
         max_length=SRC_MAX,
@@ -204,12 +209,13 @@ def generate_batch(sources, num_beams=NUM_BEAMS):
         max_new_tokens=TGT_MAX,
         num_beams=num_beams,
         length_penalty=LENGTH_PENALTY,
-        repetition_penalty=REPETITION_PENALTY,
         early_stopping=True,
     )
     if NO_REPEAT_NGRAM > 0:
         gen_kwargs["no_repeat_ngram_size"] = NO_REPEAT_NGRAM
-    outputs = model.generate(**inputs, **gen_kwargs)
+    use_amp = device.type == "cuda" and torch.cuda.is_bf16_supported()
+    with torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_amp):
+        outputs = model.generate(**inputs, **gen_kwargs)
     return tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
 
@@ -266,25 +272,56 @@ print(f"\nTranslated {len(all_predictions)} examples in {elapsed/60:.1f} min "
 # ## 6. Post-Process & Create Submission
 
 # %%
+# Decimal → unicode fraction map (host confirmed: test uses ONLY unicode fractions)
+DECIMAL_TO_FRACTION = [
+    ("0.8333", "\u215a"),  # ⅚
+    ("0.6666", "\u2154"),  # ⅔
+    ("0.3333", "\u2153"),  # ⅓
+    ("0.1666", "\u2159"),  # ⅙
+    ("0.625", "\u215d"),   # ⅝
+    ("0.75", "\u00be"),    # ¾
+    ("0.25", "\u00bc"),    # ¼
+    ("0.5", "\u00bd"),     # ½
+]
+
 def postprocess_translation(text: str) -> str:
     """Clean model output to match expected test format.
     
-    IMPORTANT: Test data uses unicode fractions (⅓ ⅔ ½) and integer months.
-    Do NOT convert these — the model already outputs the correct format.
+    Based on competition host guidance and discussion insights:
+    - Test uses unicode fractions (not decimals)
+    - No ḫ/Ḫ in test translations
+    - Straight quotes only
+    - No scribal annotations (fem., sing., pl., etc.)
+    - Single <gap> markers (no duplicates/big_gap)
     """
     if not text:
         return ""
-    # Curly → straight quotes
+    # Curly → straight quotes (host confirmed: dead quotes, no curl)
     text = text.replace("\u201c", '"').replace("\u201d", '"')
     text = text.replace("\u2018", "'").replace("\u2019", "'")
     # En/em dash → hyphen
     text = text.replace("\u2013", "-").replace("\u2014", "-")
-    # Remove <big_gap> → <gap>
+    # Ḫ/ḫ → H/h (host confirmed: neither appears in test)
+    text = text.replace("\u1e2a", "H").replace("\u1e2b", "h")
+    # <big_gap> → <gap>
     text = text.replace("<big_gap>", "<gap>")
     # Deduplicate adjacent <gap>
     text = re.sub(r"(<gap>)(?:[\s\-]*<gap>)+", r"\1", text)
-    # Ḫ/ḫ → H/h (confirmed not in test translations)
-    text = text.replace("\u1e2a", "H").replace("\u1e2b", "h")
+    # Decimal → unicode fraction (host confirmed: test has only unicode fractions)
+    for dec, frac in DECIMAL_TO_FRACTION:
+        text = text.replace(dec, frac)
+    # Remove scribal annotations not in test (host confirmed)
+    text = re.sub(r"\bfem\.\s*", "", text)
+    text = re.sub(r"\bsing\.\s*", "", text)
+    text = re.sub(r"\bpl\.\s*", "", text)
+    text = re.sub(r"\bplural\b\s*", "", text)
+    # Remove stray (?) — host confirmed not in test
+    text = text.replace("(?)", "")
+    # Subscript digits → normal digits in output
+    text = text.translate(str.maketrans(
+        "\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089",
+        "0123456789",
+    ))
     # Clean whitespace
     text = re.sub(r"\s+", " ", text).strip()
     return text
