@@ -1,0 +1,45 @@
+# Training config for ByT5-large fine-tuning on NVIDIA B200 (192 GB HBM3e)
+# Optimized for small dataset (~8,480 pairs): lower LR, more epochs, label smoothing
+run_name: byt5_large_v1
+seed: 17
+output_dir: outputs/runs/byt5_large_v1
+
+# B200: byt5-large ~1.2B params, bf16 ~2.4GB. Plenty of room.
+# Keep effective batch small enough for sufficient gradient updates on 8k dataset
+per_device_train_batch_size: 8
+per_device_eval_batch_size: 16
+gradient_accumulation_steps: 4     # effective batch = 32
+
+# Small dataset → train longer, but eval frequently to catch overfitting
+num_train_epochs: 40
+learning_rate: 1.0e-4              # lower LR for larger model
+weight_decay: 0.05                 # stronger regularization for 1.2B on 8k
+warmup_ratio: 0.06
+lr_scheduler_type: cosine
+max_grad_norm: 1.0
+
+# Label smoothing to prevent overconfident predictions on small dataset
+label_smoothing_factor: 0.1
+
+# Mixed precision on B200
+bf16: true
+
+# Eval & save — ~265 steps/epoch with eff_batch=32
+eval_strategy: steps
+eval_steps: 265                    # ~1 eval per epoch
+save_strategy: steps
+save_steps: 265
+save_total_limit: 3
+load_best_model_at_end: true
+metric_for_best_model: competition_score
+greater_is_better: true
+
+# Generation during eval
+predict_with_generate: true
+
+# Logging
+logging_steps: 20
+report_to: none
+
+# Data
+fold: 0

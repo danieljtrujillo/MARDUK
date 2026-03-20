@@ -183,6 +183,8 @@ def main() -> None:
         max_grad_norm=float(train_cfg["max_grad_norm"]),
         # Precision
         bf16=train_cfg.get("bf16", False),
+        # Label smoothing
+        label_smoothing_factor=float(train_cfg.get("label_smoothing_factor", 0.0)),
         # Eval & save
         eval_strategy=train_cfg["eval_strategy"],
         eval_steps=train_cfg["eval_steps"],

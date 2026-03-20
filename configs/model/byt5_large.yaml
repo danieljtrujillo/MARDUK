@@ -1,0 +1,14 @@
+# ByT5-large model config for Akkadian→English translation
+# 1.2B params — 2× capacity vs byt5-base for better translation quality
+model_name_or_path: google/byt5-large
+
+# Byte-level: handle full Akkadian Unicode natively
+source_max_length: 1024
+target_max_length: 256
+
+# Generation parameters (match v5 Kaggle params that scored 26.2)
+generation:
+  num_beams: 3
+  length_penalty: 1.2
+  no_repeat_ngram_size: 20
+  early_stopping: true
